@@ -1,13 +1,16 @@
-# clj-bacnet
+# Bacnet-scan
 
-FIXME: write description
+Bacnet-scan is a small network utility build on top of the Serotonin Bacnet4j GPL3 library. (http://sourceforge.net/projects/bacnet4j/)
 
 ## Usage
 
-FIXME: write
+To scan a network, simply execute the compiled JAR file and input a BACnet device number.
+The result is exported in an html file, ready to be sent to a server to interpret the data.
+
+If you want to make your own application, you should probably start with the BACnet4j stack directly.
 
 ## License
 
-Copyright (C) 2012 FIXME
+Copyright (C) 2012 Frozenlock
 
-Distributed under the Eclipse Public License, the same as Clojure.
+GNU General Public License version 3.0 (GPLv3)

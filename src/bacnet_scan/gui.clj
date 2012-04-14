@@ -1,4 +1,4 @@
-(ns clj-bacnet.gui
+(ns bacnet-scan.gui
   (:use [clojure.string :only (split join)]
         [seesaw.core]
         [seesaw.swingx]

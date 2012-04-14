@@ -1,4 +1,4 @@
-(ns clj-bacnet.export
+(ns bacnet-scan.export
   (:require [hiccup.form :as form])
   (:use [hiccup.page :only (html5)]))
 
@@ -6,12 +6,12 @@
 (def infile-css
   "<style type=\"text/css\">
 body {
-  background: #BDBAAF; /*#2a2b2b;*/
-  color: #424550;
+  background: #0A1717;
+  color: #779898;
  /* background: url('/img/bg.png');*/
   padding: 60px 80px;
   font-family: \"HelveticaNeue-Light\", \"Helvetica Neue Light\", \"Helvetica Neue\", Helvetica, Arial, \"Lucida Grande\", sans-serif;
-  font-weight: 300; /* doesn't seem to work */
+  font-weight: bold;
 }
 /* Top shadow */
 body:before {
@@ -49,5 +49,5 @@ transfered to a webserver."
        (form/form-to ;[:post "http://173.246.15.182/devices-list"]
         [:post "http://bacnethelp.dnsd.me/devices-list"]
                      (form/hidden-field "db" db)
-                     (form/submit-button "Submit to BACnet Helper!"))]])))
+                     (form/submit-button "Submit to BACnet Help!"))]])))
 

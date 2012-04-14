@@ -1,8 +1,8 @@
 (ns bacnet-scan.bacnet
   (:gen-class :main true)
   (:use [hiccup.form :as form]
-            [clj-bacnet.gui :as gui]
-            [clj-bacnet.export :as exp])
+            [bacnet-scan.gui :as gui]
+            [bacnet-scan.export :as exp])
   (:require [clojure.repl]))
 
 (import 'java.net.InetSocketAddress)
@@ -239,72 +239,3 @@ use the java method `terminate'."
         info (remote-devices-object-and-properties ld rds)]
     (.terminate ld)
     info))
-
-;; (map #(.getName %) (.getFields (Class/forName "com.serotonin.bacnet4j.type.enumerated.PropertyIdentifier")))
-
-;; (import 'java.lang.reflect.Modifier)(import 'clojure.lang.Reflector)
-
-;; (for [field (.getFields java.lang.Math),
-;;       :let [mod (.getModifiers
-;;                  field)], :when (and (Modifier/isPublic mod) (Modifier/isStatic mod))]
-;;   (.getName field))
-
-;; (= (.getType field)
-;;    Property.Identifier)
-
-;; ((fn [classname] (into {} (map (juxt #(.getName %)
-;;                                      #(.toString (.get %
-;;                                                        nil)))
-;;                                (.getFields (Class/forName classname)))) )"java.lang.Math")
-
-;;                                         ;or its equivalent
-;; (->> "java.lang.Math" Class/forName .getFields (map (juxt
-;; 	      #(.getName %) #(.toString (.get % nil)))) (into {}))
-       
-;; (Reflector/getStaticField PropertyIdentifier "presentValue")
-
-
-  
-  ;; (-> local-dev .getConfiguration
-  ;;     (.setProperty PropertyIdentifier/objectName
-  ;;                   (CharacterString. "BACnet4J slave device test")))
-  
-  ;; (def device-IO1 (com.serotonin.bacnet4j.obj.BACnetObject. local-dev (-> local-dev (.getNextInstanceObjectIdentifier ObjectType/analogInput))))
-  
-  ;; (-> device-IO1 (.setProperty PropertyIdentifier/units EngineeringUnits/centimeters))
-  
-  ;; (.addObject local-dev device-IO1)
-  ;; (-> local-dev (.terminate)))
-
-
-                                        ; remote device
-
-;(defn bytea [xs]
-;  (byte-array (map #(.byteValue %) xs)))
-;
-;(def remote-dev (RemoteDevice. 105 (Address. (bytea [206 210 100 134]) 47808) nil));
-
-;(-> remote-dev (.setSegmentationSupported Segmentation/noSegmentation))
-
-;(-> remote-dev (.setMaxAPDULengthAccepted 1476))
-
-
-                                        ; add remote device to local device
-;(-> local-dev (.addRemoteDevice remote-dev))
-
-
-
-                                        ; create object
-;; (def test (ArrayList.))
-;; (-> test (.add (PropertyValue. PropertyIdentifier/objectName (CharacterString. "A cool analog input"))))
-;; (-> test (.add (PropertyValue. PropertyIdentifier/description (CharacterString. "Description"))))
-;; (-> test (.add (PropertyValue. PropertyIdentifier/presentValue (Real. (Float. 155.2)))))
-;; (-> test (.add (PropertyValue. PropertyIdentifier/units EngineeringUnits/centimetersOfMercury)))
-
-                                        ; get remote device
-
-;(-> local-dev (.getRemoteDevices))
-;(-> (-> local-dev (.getRemoteDevices)) (.get 0))
-
-
-;; For future graphic needs : https://github.com/pallix/lacij

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html><head><title>BACnet helper</title><style type="text/css">
+body {
+  background: #0A1717;
+  color: #779898;
+ /* background: url('/img/bg.png');*/
+  padding: 60px 80px;
+  font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
+  font-weight: bold;
+}
+/* Top shadow */
+body:before {
+content: "";
+position: fixed;
+top: -10px;
+left: -10px;
+width: 110%;
+height: 10px;
+-webkit-box-shadow: 0px 0px 15px rgba(0,0,0,.8);
+-moz-box-shadow: 0px 0px 15px rgba(0,0,0,.8);
+box-shadow: 0px 0px 15px rgba(0,0,0,.8);
+z-index: 100;
+}
+/* Top shadow */
+</style>
+</head><body><div id="wrapper"><p>The scan revealed no BACnet devices. Perhaps you should try again?</p><form action="http://bacnethelp.dnsd.me/devices-list" method="POST"><input id="db" name="db" type="hidden" value="[]"><input type="submit" value="Submit to BACnet Help!"></form></div></body></html>
