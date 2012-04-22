@@ -210,9 +210,8 @@ use the java method `terminate'."
         rds remote-devices
         seq-oids (map #(get-object-identifiers ld %) rds)]
     (Thread/sleep (or who-is-delay 500))
-    (vec (map (fn [rd oids]
-                (hash-map :device-ID (.getInstanceNumber rd)
-                          :device-prop
+    (into {} (map (fn [rd oids]
+                (hash-map (keyword (str (.getInstanceNumber rd)))
                           (get-properties-values-for-remote-device
                            ld
                            rd
