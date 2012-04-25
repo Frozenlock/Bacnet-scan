@@ -99,16 +99,43 @@
             PropertyIdentifier/loggingType 
             PropertyIdentifier/logInterval]})
      normal-variable-pids)))
+
+(defn get-broadcast-address
+  "Return the broadcast address as a string"
+  []
+  (clojure.string/join "."
+                       (concat
+                        (take 3 (clojure.string/split
+                                 (.getHostAddress
+                                  (java.net.InetAddress/getLocalHost))
+                                 #"\."))
+                        ["255"])))
+
    
 (defn new-local-device
-  "Return a new BACnet local device and initialize it. (A device is
-required to communicate over the BACnet network.). To terminate it,
-use the java method `terminate'."
-  [device-ID string-broadcast-address & [string-local-bind-address]]
-  (let [ld (LocalDevice. device-ID string-broadcast-address string-local-bind-address)]
+  "Return a new configured BACnet local device . (A device is required
+to communicate over the BACnet network.). To terminate it, use the
+java method `terminate'."
+  [{:keys [device-id broadcast-address port local-address]
+    :or {device-id 1337
+         broadcast-address (get-broadcast-address)
+         port 47808
+         local-address nil}}]
+  (let [ld (LocalDevice. device-id broadcast-address local-address)]
     (-> ld (.setMaxReadMultipleReferencesNonsegmented 20))
-    (.initialize ld)
+    (.setPort ld port)
     ld))
+
+
+(defmacro with-local-device
+  "Initialize a local BACnet device, execute body and terminate the
+  local device. Insure that the local device won't survive beyond its
+  utility and lock a port. Check with-local-device-init for the config-map."
+  [[device-binding device] & body]
+  `(let [~device-binding ~device]
+     (.initialize ~device-binding)
+     (try ~@body
+          (finally (.terminate ~device-binding)))))
 
 
 (defn bac4j-to-clj
@@ -142,6 +169,7 @@ use the java method `terminate'."
   get its extended information. Return the remote devices as a list."
   [local-device]
   (-> local-device (.sendBroadcast (WhoIsRequest.)))
+  (Thread/sleep 500)
   (let [rds (-> local-device (.getRemoteDevices))]
     (doseq [remote-device rds]
       (-> local-device (.getExtendedDeviceInformation remote-device)))
@@ -219,22 +247,32 @@ use the java method `terminate'."
                            (get-properties-references ld rd oids))))
               rds seq-oids))))
          
+;; (defn -main [& args]
+;;   (when-let [config (gui/query-user)]
+;;     (let [local-device (new-local-device (Integer/parseInt (:devID config))
+;;                                          (:bc-address config)
+;;                                          (:IP config))
+;;           rds (get-remote-devices-and-info local-device)
+;;           scan-msg (gui/scanning-bacnet-network rds)
+;;           info (remote-devices-object-and-properties local-device rds)]
+;;       (.terminate local-device)
+;;       (spit "Bacnet-Help.html" (exp/export-to-html info))
+;;       (.dispose scan-msg)
+;;       (gui/scan-completed))))
+
 (defn -main [& args]
   (when-let [config (gui/query-user)]
-    (let [local-device (new-local-device (Integer/parseInt (:devID config))
-                                         (:bc-address config)
-                                         (:IP config))
-          rds (get-remote-devices-and-info local-device)
-          scan-msg (gui/scanning-bacnet-network rds)
-          info (remote-devices-object-and-properties local-device rds)]
-      (.terminate local-device)
-      (spit "Bacnet-Help.html" (exp/export-to-html info))
-      (.dispose scan-msg)
-      (gui/scan-completed))))
-  
+    (with-local-device [ld (new-local-device config)]
+      (let [rds (get-remote-devices-and-info ld)
+            scan-msg (gui/scanning-bacnet-network rds)
+            info (remote-devices-object-and-properties ld rds)]
+        (exp/spit-to-html "Bacnet-help" info)
+        (.dispose scan-msg)))
+    (gui/scan-completed)))
+
+
 (defn bacnet-test []
-  (let [ld (new-local-device 222 "192.168.0.255" "192.168.0.3")
-        rds (get-remote-devices-and-info ld)
-        info (remote-devices-object-and-properties ld rds)]
-    (.terminate ld)
-    info))
+  (let [config {:local-address "192.168.0.3"}]
+    (with-local-device [ld (new-local-device config)]
+    (let [rds (get-remote-devices-and-info ld)]
+      (remote-devices-object-and-properties ld rds)))))

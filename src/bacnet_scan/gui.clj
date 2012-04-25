@@ -27,10 +27,12 @@ foo, :bc-address foo, :port foo}"
                       ["Port (default 47808):"    ] [(text :id :port :text "47808")]])
              :option-type :ok-cancel
              :type :question
-             :success-fn (fn [p] {:devID (text (select (to-root p) [:#devID])),
-                                  :bc-address (text (select (to-root p) [:#bc-address])),
-                                  :IP (text (select (to-root p) [:#IP])),
-                                  :port (text (select (to-root p) [:#port]))}))
+             :success-fn (fn [p] {:device-id (Integer/parseInt
+                                              (text (select (to-root p) [:#devID]))),
+                                  :broadcast-address (text (select (to-root p) [:#bc-address])),
+                                  :local-address (text (select (to-root p) [:#IP])),
+                                  :port (Integer/parseInt
+                                         (text (select (to-root p) [:#port])))}))
      (pack!)
      (show!))))
 

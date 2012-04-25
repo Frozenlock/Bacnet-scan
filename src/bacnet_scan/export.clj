@@ -2,6 +2,7 @@
   (:require [hiccup.form :as form])
   (:use [hiccup.page :only (html5)]))
 
+(import 'java.util.Calendar)
 
 (def infile-css
   "<style type=\"text/css\">
@@ -51,3 +52,8 @@ transfered to a webserver."
                      (form/hidden-field "db" db)
                      (form/submit-button "Submit to BACnet Help!"))]])))
 
+(defn spit-to-html [filename-prefix data]
+  (spit (str filename-prefix "-"
+             (.getTimeInMillis (Calendar/getInstance))
+             ".html")
+        (export-to-html data)))
