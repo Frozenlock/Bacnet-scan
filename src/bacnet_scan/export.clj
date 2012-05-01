@@ -7,7 +7,7 @@
 (def infile-css
   "<style type=\"text/css\">
 body {
-  background: #0A1717;
+  background: #112424;
   color: #779898;
  /* background: url('/img/bg.png');*/
   padding: 60px 80px;

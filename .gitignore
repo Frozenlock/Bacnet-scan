@@ -6,3 +6,5 @@ pom.xml
 /
 *.log
 *.exe
+*.html
+*.bat

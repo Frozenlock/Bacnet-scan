@@ -28,7 +28,7 @@ foo, :bc-address foo, :port foo}"
                       ["Range max"][(text :id :upper-range)]
                       ["Broadcast address:"       ] [(text :id :bc-address :text possible-bc-ip)]
                       ["Current IP:"              ] [(text :id :IP :text current-ip)            ]
-                      ["Port (default 47808):"    ] [(text :id :port :text "47808")]])
+                      ["Destination port (default 47808):"    ] [(text :id :dest-port :text "47808")]])
              :option-type :ok-cancel
              :type :question
              :success-fn
@@ -36,8 +36,8 @@ foo, :bc-address foo, :port foo}"
                                   (text (select (to-root p) [:#devID]))),
                       :broadcast-address (text (select (to-root p) [:#bc-address])),
                       :local-address (text (select (to-root p) [:#IP])),
-                      :port (Integer/parseInt
-                             (text (select (to-root p) [:#port])))
+                      :dest-port (Integer/parseInt
+                             (text (select (to-root p) [:#dest-port])))
                       :lower-range (let [lr (text (select (to-root p) [:#lower-range]))]
                                      (when-not (empty? lr)
                                        (Integer/parseInt lr)))

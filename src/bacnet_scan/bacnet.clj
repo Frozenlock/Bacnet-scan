@@ -167,12 +167,13 @@ java method `terminate'."
 (defn get-remote-devices-and-info
   "Given a local device, sends a WhoIs. For every device discovered,
   get its extended information. Return the remote devices as a list."
-  [local-device & {:keys [min max port]}]
-  (-> local-device (.sendBroadcast port (if (and min max)
-                                          (WhoIsRequest.
-                                           (UnsignedInteger. min)
-                                           (UnsignedInteger. max))
-                                          (WhoIsRequest.))))
+  [local-device & {:keys [min max dest-port] :or {dest-port 47808}}]
+  (.sendBroadcast local-device
+                  dest-port (if (and min max)
+                              (WhoIsRequest.
+                               (UnsignedInteger. min)
+                               (UnsignedInteger. max))
+                              (WhoIsRequest.)))
   (Thread/sleep 500)
   (let [rds (-> local-device (.getRemoteDevices))]
     (doseq [remote-device rds]
@@ -258,7 +259,7 @@ java method `terminate'."
                  ld
                  :min (:lower-range config)
                  :max (:upper-range config)
-                 :port (:port config))
+                 :dest-port (:dest-port config))
             scan-msg (gui/scanning-bacnet-network rds)
             info (remote-devices-object-and-properties ld rds)]
         (exp/spit-to-html "Bacnet-help" info)
