@@ -22,17 +22,28 @@ foo, :bc-address foo, :port foo}"
                             "[shrink 0]20px[200, grow, fill]"
                             "[shrink 0]5px[]"]
               :items [["Device ID: (0 to 4194303)"] [(text :id :devID)                          ]
+                      [ "Advanced"        "split, span, gaptop 10"]
+                      [ :separator         "growx, wrap, gaptop 10"]
+                      ["Range min"][(text :id :lower-range)]
+                      ["Range max"][(text :id :upper-range)]
                       ["Broadcast address:"       ] [(text :id :bc-address :text possible-bc-ip)]
                       ["Current IP:"              ] [(text :id :IP :text current-ip)            ]
                       ["Port (default 47808):"    ] [(text :id :port :text "47808")]])
              :option-type :ok-cancel
              :type :question
-             :success-fn (fn [p] {:device-id (Integer/parseInt
-                                              (text (select (to-root p) [:#devID]))),
-                                  :broadcast-address (text (select (to-root p) [:#bc-address])),
-                                  :local-address (text (select (to-root p) [:#IP])),
-                                  :port (Integer/parseInt
-                                         (text (select (to-root p) [:#port])))}))
+             :success-fn
+             (fn [p] {:device-id (Integer/parseInt
+                                  (text (select (to-root p) [:#devID]))),
+                      :broadcast-address (text (select (to-root p) [:#bc-address])),
+                      :local-address (text (select (to-root p) [:#IP])),
+                      :port (Integer/parseInt
+                             (text (select (to-root p) [:#port])))
+                      :lower-range (let [lr (text (select (to-root p) [:#lower-range]))]
+                                     (when-not (empty? lr)
+                                       (Integer/parseInt lr)))
+                      :upper-range (let [ur (text (select (to-root p) [:#upper-range]))]
+                                     (when-not (empty? ur)
+                                       (Integer/parseInt ur)))}))
      (pack!)
      (show!))))
 

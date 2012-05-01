@@ -130,7 +130,7 @@ java method `terminate'."
 (defmacro with-local-device
   "Initialize a local BACnet device, execute body and terminate the
   local device. Insure that the local device won't survive beyond its
-  utility and lock a port. Check with-local-device-init for the config-map."
+  utility and lock a port. Should be used with new-local-device."
   [[device-binding device] & body]
   `(let [~device-binding ~device]
      (.initialize ~device-binding)
@@ -167,8 +167,12 @@ java method `terminate'."
 (defn get-remote-devices-and-info
   "Given a local device, sends a WhoIs. For every device discovered,
   get its extended information. Return the remote devices as a list."
-  [local-device]
-  (-> local-device (.sendBroadcast (WhoIsRequest.)))
+  [local-device & {:keys [min max port]}]
+  (-> local-device (.sendBroadcast port (if (and min max)
+                                          (WhoIsRequest.
+                                           (UnsignedInteger. min)
+                                           (UnsignedInteger. max))
+                                          (WhoIsRequest.))))
   (Thread/sleep 500)
   (let [rds (-> local-device (.getRemoteDevices))]
     (doseq [remote-device rds]
@@ -247,23 +251,14 @@ java method `terminate'."
                            (get-properties-references ld rd oids))))
               rds seq-oids))))
          
-;; (defn -main [& args]
-;;   (when-let [config (gui/query-user)]
-;;     (let [local-device (new-local-device (Integer/parseInt (:devID config))
-;;                                          (:bc-address config)
-;;                                          (:IP config))
-;;           rds (get-remote-devices-and-info local-device)
-;;           scan-msg (gui/scanning-bacnet-network rds)
-;;           info (remote-devices-object-and-properties local-device rds)]
-;;       (.terminate local-device)
-;;       (spit "Bacnet-Help.html" (exp/export-to-html info))
-;;       (.dispose scan-msg)
-;;       (gui/scan-completed))))
-
 (defn -main [& args]
   (when-let [config (gui/query-user)]
     (with-local-device [ld (new-local-device config)]
-      (let [rds (get-remote-devices-and-info ld)
+      (let [rds (get-remote-devices-and-info
+                 ld
+                 :min (:lower-range config)
+                 :max (:upper-range config)
+                 :port (:port config))
             scan-msg (gui/scanning-bacnet-network rds)
             info (remote-devices-object-and-properties ld rds)]
         (exp/spit-to-html "Bacnet-help" info)
