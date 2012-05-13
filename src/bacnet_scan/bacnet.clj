@@ -1,11 +1,9 @@
 (ns bacnet-scan.bacnet
-  (:gen-class :main true)
   (:use [hiccup.form :as form]
-            [bacnet-scan.gui :as gui]
-            [bacnet-scan.export :as exp])
+            [bacnet-scan.export :as exp]g
+            [bacnet-scan.helpfn])
   (:require [clojure.repl]))
 
-(import 'java.net.InetSocketAddress)
 (import 'java.util.ArrayList)
 (import 'java.util.List)
 (import '(com.serotonin.bacnet4j 
@@ -100,14 +98,14 @@
             PropertyIdentifier/logInterval]})
      normal-variable-pids)))
 
+
 (defn get-broadcast-address
   "Return the broadcast address as a string"
   []
   (clojure.string/join "."
                        (concat
                         (take 3 (clojure.string/split
-                                 (.getHostAddress
-                                  (java.net.InetAddress/getLocalHost))
+                                 (get-ip)
                                  #"\."))
                         ["255"])))
 
@@ -116,13 +114,13 @@
   "Return a new configured BACnet local device . (A device is required
 to communicate over the BACnet network.). To terminate it, use the
 java method `terminate'."
-  [{:keys [device-id broadcast-address port local-address]
+  [& {:keys [device-id broadcast-address port local-address]
     :or {device-id 1337
          broadcast-address (get-broadcast-address)
          port 47808
          local-address nil}}]
   (let [ld (LocalDevice. device-id broadcast-address local-address)]
-    (-> ld (.setMaxReadMultipleReferencesNonsegmented 20))
+    ;(-> ld (.setMaxReadMultipleReferencesNonsegmented 14))
     (.setPort ld port)
     ld))
 
@@ -132,10 +130,12 @@ java method `terminate'."
   local device. Insure that the local device won't survive beyond its
   utility and lock a port. Should be used with new-local-device."
   [[device-binding device] & body]
+  (let [var (gensym)] ;create a unique error handler
   `(let [~device-binding ~device]
      (.initialize ~device-binding)
      (try ~@body
-          (finally (.terminate ~device-binding)))))
+          (catch Exception ~var (str "error: " (.getMessage ~var)))
+          (finally (.terminate ~device-binding))))))
 
 
 (defn bac4j-to-clj
@@ -252,23 +252,22 @@ java method `terminate'."
                            (get-properties-references ld rd oids))))
               rds seq-oids))))
          
-(defn -main [& args]
-  (when-let [config (gui/query-user)]
-    (with-local-device [ld (new-local-device config)]
-      (let [rds (get-remote-devices-and-info
-                 ld
-                 :min (:lower-range config)
-                 :max (:upper-range config)
-                 :dest-port (:dest-port config))
-            scan-msg (gui/scanning-bacnet-network rds)
-            info (remote-devices-object-and-properties ld rds)]
-        (exp/spit-to-html "Bacnet-help" info)
-        (.dispose scan-msg)))
-    (gui/scan-completed)))
+;; (defn -main [& args]
+;;   (when-let [config (gui/query-user)]
+;;     (with-local-device [ld (new-local-device config)]
+;;       (let [rds (get-remote-devices-and-info
+;;                  ld
+;;                  :min (:lower-range config)
+;;                  :max (:upper-range config)
+;;                  :dest-port (:dest-port config))
+;;             scan-msg (gui/scanning-bacnet-network rds)
+;;             info (remote-devices-object-and-properties ld rds)]
+;;         (exp/spit-to-html "Bacnet-help" info)
+;;         (.dispose scan-msg)))
+;;     (gui/scan-completed)))
 
 
 (defn bacnet-test []
-  (let [config {:local-address "192.168.0.3"}]
-    (with-local-device [ld (new-local-device config)]
-    (let [rds (get-remote-devices-and-info ld)]
-      (remote-devices-object-and-properties ld rds)))))
+  (with-local-device [ld (new-local-device)]
+                      (let [rds (get-remote-devices-and-info ld)]
+                        (remote-devices-object-and-properties ld rds))))

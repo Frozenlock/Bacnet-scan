@@ -7,4 +7,4 @@
                  [org.clojars.jarpiain/sero-utils "1.0.0"]
                  [hiccup "1.0.0-beta1"]
                  [seesaw "1.4.0"]]
-  :main bacnet-scan.bacnet)
+  :main bacnet-scan.gui)
