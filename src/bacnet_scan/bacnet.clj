@@ -90,7 +90,9 @@
             PropertyIdentifier/scheduleDefault
             PropertyIdentifier/exceptionSchedule
             PropertyIdentifier/listOfObjectPropertyReferences]
-       :20 [PropertyIdentifier/logBuffer ;tend-log
+       :20 [PropertyIdentifier/objectName
+            PropertyIdentifier/description
+            PropertyIdentifier/logBuffer ;tend-log
             PropertyIdentifier/logDeviceObjectProperty 
             PropertyIdentifier/loggingObject 
             PropertyIdentifier/loggingRecord 
