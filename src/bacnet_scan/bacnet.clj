@@ -1,6 +1,6 @@
 (ns bacnet-scan.bacnet
   (:use [hiccup.form :as form]
-            [bacnet-scan.export :as exp]g
+            [bacnet-scan.export :as exp]
             [bacnet-scan.helpfn])
   (:require [clojure.repl]))
 
