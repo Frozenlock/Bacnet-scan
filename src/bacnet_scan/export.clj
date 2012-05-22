@@ -48,7 +48,7 @@ transfered to a webserver."
                   (if (> number-of-devices 1)" BACnet devices!" " BACnet device!"))
              (str "The scan revealed no BACnet devices. Perhaps you should try again?"))]
        (form/form-to ;[:post "http://173.246.15.182/devices-list"]
-        [:post "http://bacnethelp.dnsd.me/devices-list"]
+        [:post "https://bacnethelp.com/devices-list"]
                      (form/hidden-field "db" db)
                      (form/submit-button "Submit to BACnet Help!"))]])))
 
