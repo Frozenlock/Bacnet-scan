@@ -20,6 +20,8 @@
           service.confirmed.ReadPropertyRequest
           service.confirmed.WritePropertyMultipleRequest
           service.confirmed.WritePropertyRequest
+          service.confirmed.ReinitializeDeviceRequest
+          service.confirmed.AtomicReadFileRequest
           service.unconfirmed.WhoIsRequest
           type.constructed.Address
           type.constructed.Destination
@@ -273,3 +275,17 @@ java method `terminate'."
   (with-local-device [ld (new-local-device)]
                       (let [rds (get-remote-devices-and-info ld)]
                         (remote-devices-object-and-properties ld rds))))
+
+(defn backup [local-device remote-device password]
+  (.send local-device remote-device
+         (ReinitializeDeviceRequest.
+          com.serotonin.bacnet4j.service.confirmed.ReinitializeDeviceRequest$ReinitializedStateOfDevice/startbackup
+          (CharacterString. password)))
+  (PropertyIdentifier/configurationFiles
+   PropertyIdentifier/fileAccessMethod
+   PropertyIdentifier/fileSize
+   PropertyIdentifier/fileType
+  
+  (AtomicReadFileRequest. 
+
+   P.371
