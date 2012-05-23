@@ -1,7 +1,8 @@
 (ns bacnet-scan.bacnet
   (:use [hiccup.form :as form]
             [bacnet-scan.export :as exp]
-            [bacnet-scan.helpfn])
+            [bacnet-scan.helpfn]
+            [clj-time.core :only (now)])
   (:require [clojure.repl]))
 
 (import 'java.util.ArrayList)
@@ -248,13 +249,14 @@ java method `terminate'."
         seq-oids (map #(get-object-identifiers ld %) rds)]
     (Thread/sleep (or who-is-delay 500))
     (into {} (map (fn [rd oids]
-                (hash-map (keyword (str (.getInstanceNumber rd)))
-                          (get-properties-values-for-remote-device
-                           ld
-                           rd
-                           oids
-                           (get-properties-references ld rd oids))))
-              rds seq-oids))))
+                    (hash-map (keyword (str (.getInstanceNumber rd)))
+                              {:time (.toString (now))
+                               :objects (get-properties-values-for-remote-device
+                                         ld
+                                         rd
+                                         oids
+                                         (get-properties-references ld rd oids))}))
+                  rds seq-oids))))
          
 ;; (defn -main [& args]
 ;;   (when-let [config (gui/query-user)]
