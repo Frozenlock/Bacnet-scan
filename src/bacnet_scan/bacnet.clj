@@ -250,7 +250,7 @@ java method `terminate'."
     (Thread/sleep (or who-is-delay 500))
     (into {} (map (fn [rd oids]
                     (hash-map (keyword (str (.getInstanceNumber rd)))
-                              {:time (.toString (now))
+                              {:update (.toString (now))
                                :objects (get-properties-values-for-remote-device
                                          ld
                                          rd
