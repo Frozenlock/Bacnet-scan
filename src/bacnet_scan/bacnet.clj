@@ -288,12 +288,6 @@ java method `terminate'."
     (for [rd (.getRemoteDevices ld)]
       (.getInstanceNumber rd))))
 
-
-(defn get-backup-files [local-device remote-device seq-object-identifiers]
-  (let [properties-references
-        (get-properties-references local-device remote-device seq-object-identifiers)]
-    ))
-
 (defn atomic-read-file
   "Return the file as a BACnet octet string"
   [local-device remote-device object-identifier]
@@ -311,23 +305,33 @@ java method `terminate'."
     
 
 (defn backup
-  "Export the configuration files form a device"
+  "Export the configuration files form a device."
   [local-device remote-device password]
     ;; First prepare the device (backup mode)
-  (.send local-device remote-device 
-         (ReinitializeDeviceRequest.
-          com.serotonin.bacnet4j.service.confirmed.ReinitializeDeviceRequest$ReinitializedStateOfDevice/startbackup
-          (CharacterString. password)))
-  ;; Now retrieve the configuration files
-  (let [config-files
-        (.sendReadPropertyAllowNull local-device
-                                    remote-device
-                                    (ObjectIdentifier. ObjectType/device
-                                                       (.getInstanceNumber remote-device))
-                                    PropertyIdentifier/configurationFiles)]
-    ;;Finally export the files
-    (for [cfile config-files]
-      (let [file-bytes (.getBytes (atomic-read-file local-device remote-device cfile))]
-        (with-open [out (java.io.FileOutputStream. (.toString cfile))]
-          (.write out (byte-array file-bytes)))))))
+  (try
+    (.send local-device remote-device 
+           (ReinitializeDeviceRequest.
+            com.serotonin.bacnet4j.service.confirmed.ReinitializeDeviceRequest$ReinitializedStateOfDevice/startbackup
+            (CharacterString. password)))
+    ;; Now retrieve the configuration files
+    (let [config-files
+          (.sendReadPropertyAllowNull local-device
+                                      remote-device
+                                      (ObjectIdentifier. ObjectType/device
+                                                         (.getInstanceNumber remote-device))
+                                      PropertyIdentifier/configurationFiles)]
+      ;;export the files
+      (doall ;force immediate evaluation before ending the backup procedure
+       (for [cfile config-files]
+         (let [file-bytes (.getBytes (atomic-read-file local-device remote-device cfile))]
+           (with-open [out (java.io.FileOutputStream. (.toString cfile))]
+             (.write out (byte-array file-bytes)))))))
+    (catch Exception e (str "caught exception: " (.getMessage e)))
+    ;; Finally exit backup mode
+    (finally
+     (.send local-device remote-device 
+            (ReinitializeDeviceRequest.
+             com.serotonin.bacnet4j.service.confirmed.ReinitializeDeviceRequest$ReinitializedStateOfDevice/endbackup
+             (CharacterString. password))))))
+
   
