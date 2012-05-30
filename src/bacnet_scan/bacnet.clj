@@ -338,24 +338,29 @@ java method `terminate'."
 
 
 (defn get-trend-log-data [local-device remote-device object-identifier]
-  (let [refs (PropertyReferences.)]
-    (doseq [pid [PropertyIdentifier/totalRecordCount
+   (let [refs (PropertyReferences.)]
+     (doseq [pid [PropertyIdentifier/totalRecordCount
                  PropertyIdentifier/recordCount]]
-      (.add refs tl-oid pid))
+      (.add refs object-identifier pid))
     (let [prop-values (.readProperties local-device remote-device refs)
           total-record-count (.intValue
-                        (.get prop-values tl-oid PropertyIdentifier/totalRecordCount))
-          record-count (.intValue (.get prop-values tl-oid PropertyIdentifier/recordCount))
-          ref-index (- total-record-count record-count)
+                        (.get prop-values object-identifier PropertyIdentifier/totalRecordCount))
+          record-count (.intValue (.get prop-values object-identifier PropertyIdentifier/recordCount))
+          ref-index (+ 1 (- total-record-count record-count)) ; +1, otherwise risk an out-of-range error
           read-range-request (ReadRangeRequest.
-               tl-oid PropertyIdentifier/logBuffer nil
+               object-identifier PropertyIdentifier/logBuffer nil
                (com.serotonin.bacnet4j.service.confirmed.ReadRangeRequest$BySequenceNumber.
                 (UnsignedInteger. ref-index)
                 (SignedInteger. record-count)))
-          results (.send local-device rd read-range-request)]
-      (map #(if (= 2 (.getChoiceType %))
-              {:value (.toString (.getReal %)) :time (.toString
-                                          (org.joda.time.DateTime.
-                                           (.getTimeMillis (.getTimestamp %))))})
+          results (.send local-device rd read-range-request)
+          get-time (fn [data-value](.toString
+                                        (org.joda.time.DateTime.
+                                         (.getTimeMillis (.getTimestamp data-value)))))]
+      (map #(cond (= 2 (.getChoiceType %)) ;choice :  2 = Real, 0 Log disabled buffer purged, 9 Time change
+                  {:value (.toString (.getReal %)) :time (get-time %)}
+                  (= 0 (.getChoiceType %))
+                  {:log-status (.toString (.getLogStatus %)) :time (get-time %)}
+                  (= 9 (.getChoiceType %))
+                  {:time-change (.toString (.getTimeChange %)) :time (get-time %)})           
            (.getValues (.getItemData results))))))
 
