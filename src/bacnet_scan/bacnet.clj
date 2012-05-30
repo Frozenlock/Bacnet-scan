@@ -13,6 +13,7 @@
           service.acknowledgement.AcknowledgementService 
           service.acknowledgement.CreateObjectAck
           service.acknowledgement.ReadPropertyAck
+          service.acknowledgement.ReadRangeAck
           service.confirmed.ConfirmedRequestService
           service.confirmed.CreateObjectRequest
           service.confirmed.DeleteObjectRequest
@@ -23,6 +24,7 @@
           service.confirmed.WritePropertyRequest
           service.confirmed.ReinitializeDeviceRequest
           service.confirmed.AtomicReadFileRequest
+          service.confirmed.ReadRangeRequest
           service.unconfirmed.WhoIsRequest
           type.constructed.Address
           type.constructed.Destination
@@ -334,4 +336,26 @@ java method `terminate'."
              com.serotonin.bacnet4j.service.confirmed.ReinitializeDeviceRequest$ReinitializedStateOfDevice/endbackup
              (CharacterString. password))))))
 
-  
+
+(defn get-trend-log-data [local-device remote-device object-identifier]
+  (let [refs (PropertyReferences.)]
+    (doseq [pid [PropertyIdentifier/totalRecordCount
+                 PropertyIdentifier/recordCount]]
+      (.add refs tl-oid pid))
+    (let [prop-values (.readProperties local-device remote-device refs)
+          total-record-count (.intValue
+                        (.get prop-values tl-oid PropertyIdentifier/totalRecordCount))
+          record-count (.intValue (.get prop-values tl-oid PropertyIdentifier/recordCount))
+          ref-index (- total-record-count record-count)
+          read-range-request (ReadRangeRequest.
+               tl-oid PropertyIdentifier/logBuffer nil
+               (com.serotonin.bacnet4j.service.confirmed.ReadRangeRequest$BySequenceNumber.
+                (UnsignedInteger. ref-index)
+                (SignedInteger. record-count)))
+          results (.send local-device rd read-range-request)]
+      (map #(if (= 2 (.getChoiceType %))
+              {:value (.toString (.getReal %)) :time (.toString
+                                          (org.joda.time.DateTime.
+                                           (.getTimeMillis (.getTimestamp %))))})
+           (.getValues (.getItemData results))))))
+
