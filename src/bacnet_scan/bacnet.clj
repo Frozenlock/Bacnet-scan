@@ -274,19 +274,36 @@ java method `terminate'."
            (.getValues (.getItemData results))))))
 
 
+(defn atomic-read-file-in-small-chunk [remote-device object-identifier
+                                       record-access int-file-size int-file-start-position]
+  (when-not (<= int-file-size int-file-start-position)
+      (let [requested-count (if (>= int-file-size (+ 1500 int-file-start-position))
+                          1500
+                          (- int-file-size int-file-start-position))]
+        (concat (.getBytes (.getFileData
+                 (.send local-device remote-device
+                        (AtomicReadFileRequest. object-identifier
+                                                record-access
+                                                (SignedInteger. int-file-start-position)
+                                                (UnsignedInteger. requested-count)))))
+                (atomic-read-file-in-small-chunk remote-device object-identifier
+                                                 record-access int-file-size (+ 1500 int-file-start-position))))))
+
+          
 (defn atomic-read-file
   "Return the file as a BACnet octet string"
   [remote-device object-identifier]
   (let [properties (.readProperties local-device remote-device
-                                    (get-properties-references local-device remote-device
+                                    (get-properties-references remote-device
                                                                [object-identifier]))
         file-size (.getNoErrorCheck properties object-identifier PropertyIdentifier/fileSize)
         record-access (= com.serotonin.bacnet4j.type.enumerated.FileAccessMethod/recordAccess
                          (.getNoErrorCheck properties object-identifier
-                                           PropertyIdentifier/fileAccessMethod))]
-    (.getFileData
-     (.send local-device remote-device
-            (AtomicReadFileRequest. object-identifier record-access (SignedInteger. 0) file-size)))))
+                                           PropertyIdentifier/fileAccessMethod))
+        file-start-position 0]
+    (atomic-read-file-in-small-chunk remote-device object-identifier
+                                      record-access (.intValue file-size)
+                                      file-start-position)))
 
 
 (defn backup
@@ -309,7 +326,7 @@ java method `terminate'."
       ;;export the files
       (doall ;force immediate evaluation before ending the backup procedure
        (for [cfile config-files]
-         (.getBytes (atomic-read-file local-device remote-device cfile)))))
+         (atomic-read-file remote-device cfile))))
     (catch Exception e (str "error: " (.getMessage e)))
     ;; Finally exit backup mode
     (finally
@@ -332,7 +349,7 @@ java method `terminate'."
   [remote-device password]
   (let [backup-files (backup remote-device password)]
     (if-not (string? backup-files)
-      (map #(encode-base-64 %) backup-files))))
+      (into [] (map #(encode-base-64 (byte-array %)) backup-files)))))
 
 (defn get-properties-values-for-remote-device
   [remote-device seq-object-identifiers property-references
@@ -362,23 +379,23 @@ java method `terminate'."
   (let [rds remote-devices
         seq-oids (map #(get-object-identifiers %) rds)] ;delay needed?
     (into {} (map (fn [rd oids]
-                  (let [prop-refs (get-properties-references rd oids)
-                        objects (get-properties-values-for-remote-device
-                                 rd oids prop-refs :get-trend-log get-trend-log)
-                        backup-data (get-backup-and-encode remote-device password)
-                        results (hash-map (keyword (str (.getInstanceNumber rd)))
-                                          {:update (.toString (now))
-                                           :objects objects})]
-                    (if (and get-backup backup-data )
-                      (assoc results :backup-data backup-data)
-                        results)))
+                    (let [prop-refs (get-properties-references rd oids)
+                          objects (get-properties-values-for-remote-device
+                                   rd oids prop-refs :get-trend-log get-trend-log)
+                          results {:update (.toString (now))
+                                   :objects objects}]
+                      (hash-map (keyword (str (.getInstanceNumber rd)))
+                                (if-let [backup (and get-backup
+                                                     (get-backup-and-encode rd password))]
+                                  (assoc results :backup-data backup)
+                                  results))))
                   rds seq-oids))))
 
 
 (defn bacnet-test []
   (with-local-device (new-local-device)
     (let [rds (get-remote-devices-and-info)]
-      (remote-devices-object-and-properties rds :get-trend-log true :get-backup true))))
+      (remote-devices-object-and-properties rds :get-trend-log false :get-backup true :password ""))))
 
 (defn get-remote-devices-list
   "Mostly for development; return a list of remote devices ID"
