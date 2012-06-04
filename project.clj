@@ -7,5 +7,6 @@
                  [org.clojars.jarpiain/sero-utils "1.0.0"]
                  [clj-time "0.4.2"]
                  [hiccup "1.0.0-beta1"]
-                 [seesaw "1.4.0"]]
+                 [seesaw "1.4.0"]
+                 [org.clojure/data.codec "0.1.0"]]
   :main bacnet-scan.gui)

@@ -3,7 +3,8 @@
             [bacnet-scan.export :as exp]
             [bacnet-scan.helpfn]
             [clj-time.core :only (now)])
-  (:require [clojure.repl]))
+  (:require [clojure.repl]
+            [clojure.data.codec.base64 :as b64]))
 
 (import 'java.util.ArrayList)
 (import 'java.util.List)
@@ -132,18 +133,35 @@ java method `terminate'."
     (.setPort ld port)
     ld))
 
+(def ^:dynamic local-device (new-local-device))
+(def ^:dynamic remote-device (.getRemoteDevice local-device 1234))
+;; dummy values. Should be bound over when running code
+
 
 (defmacro with-local-device
   "Initialize a local BACnet device, execute body and terminate the
   local device. Insure that the local device won't survive beyond its
   utility and lock a port. Should be used with new-local-device."
-  [[device-binding device] & body]
+  [new-local-device & body]
   (let [var (gensym)] ;create a unique error handler
-  `(let [~device-binding ~device]
-     (.initialize ~device-binding)
+  `(binding [local-device ~new-local-device]
+     (.initialize local-device)
      (try ~@body
           (catch Exception ~var (str "error: " (.getMessage ~var)))
-          (finally (.terminate ~device-binding))))))
+          (finally (.terminate local-device))))))
+
+
+;; (defmacro with-local-device
+;;   "Initialize a local BACnet device, execute body and terminate the
+;;   local device. Insure that the local device won't survive beyond its
+;;   utility and lock a port. Should be used with new-local-device."
+;;   [[device-binding device] & body]
+;;   (let [var (gensym)] ;create a unique error handler
+;;   `(let [~device-binding ~device]
+;;      (.initialize ~device-binding)
+;;      (try ~@body
+;;           (catch Exception ~var (str "error: " (.getMessage ~var)))
+;;           (finally (.terminate ~device-binding))))))
 
 
 (defn bac4j-to-clj
@@ -175,7 +193,7 @@ java method `terminate'."
 (defn get-remote-devices-and-info
   "Given a local device, sends a WhoIs. For every device discovered,
   get its extended information. Return the remote devices as a list."
-  [local-device & {:keys [min max dest-port] :or {dest-port 47808}}]
+  [& {:keys [min max dest-port] :or {dest-port 47808}}]
   (.sendBroadcast local-device
                   dest-port (if (and min max)
                               (WhoIsRequest.
@@ -191,7 +209,7 @@ java method `terminate'."
 (defn get-object-identifiers
   "Return a remote device's object identifiers (object-list) as a
   sequence."
-  [local-device remote-device]
+  [remote-device]
   (.getValues
    (-> local-device
        (.sendReadPropertyAllowNull remote-device
@@ -201,7 +219,7 @@ java method `terminate'."
 (defn get-properties-references
   "Return references for the given property identifiers sequence and
   object identifiers sequence."
-  [local-device remote-device seq-object-identifier]
+  [remote-device seq-object-identifier]
   (let [references (PropertyReferences.)]
     (doseq [object-identifier seq-object-identifier]
       (doseq [property-id (prop-ID-by-object-type
@@ -227,72 +245,38 @@ java method `terminate'."
        seq-prop-ID))
 
 
-(defn get-properties-values-for-remote-device
-  [local-device remote-device seq-object-identifiers property-references]
-  (let [property-values (-> local-device
-                            (.readProperties remote-device property-references))]
-    (map #(hash-map :object-type
-                    (.toString (.getObjectType %))
-                    :object-int
-                    (.intValue (.getObjectType %))
-                    :object-instance
-                    (.getInstanceNumber %)
-                    :object-properties
-                    (get-properties-values-for-object property-values
-                                                      %
-                                                      (prop-ID-by-object-type
-                                                       (.intValue (.getObjectType %)))))
-         seq-object-identifiers)))
-  
-(defn remote-devices-object-and-properties
-  "Return a map of object and properties for the remote devices."
-  [local-device remote-devices & who-is-delay]
-  (let [ld local-device
-        rds remote-devices
-        seq-oids (map #(get-object-identifiers ld %) rds)]
-    (Thread/sleep (or who-is-delay 500))
-    (into {} (map (fn [rd oids]
-                    (hash-map (keyword (str (.getInstanceNumber rd)))
-                              {:update (.toString (now))
-                               :objects (get-properties-values-for-remote-device
-                                         ld
-                                         rd
-                                         oids
-                                         (get-properties-references ld rd oids))}))
-                  rds seq-oids))))
-         
-;; (defn -main [& args]
-;;   (when-let [config (gui/query-user)]
-;;     (with-local-device [ld (new-local-device config)]
-;;       (let [rds (get-remote-devices-and-info
-;;                  ld
-;;                  :min (:lower-range config)
-;;                  :max (:upper-range config)
-;;                  :dest-port (:dest-port config))
-;;             scan-msg (gui/scanning-bacnet-network rds)
-;;             info (remote-devices-object-and-properties ld rds)]
-;;         (exp/spit-to-html "Bacnet-help" info)
-;;         (.dispose scan-msg)))
-;;     (gui/scan-completed)))
+(defn get-trend-log-data [remote-device object-identifier]
+   (let [refs (PropertyReferences.)]
+     (doseq [pid [PropertyIdentifier/totalRecordCount
+                 PropertyIdentifier/recordCount]]
+      (.add refs object-identifier pid))
+    (let [prop-values (.readProperties local-device remote-device refs)
+          total-record-count (.intValue
+                        (.get prop-values object-identifier PropertyIdentifier/totalRecordCount))
+          record-count (.intValue
+                        (.get prop-values object-identifier PropertyIdentifier/recordCount))
+          ref-index (+ 1 (- total-record-count record-count)) ; +1, otherwise risk an out-of-range error
+          read-range-request (ReadRangeRequest.
+               object-identifier PropertyIdentifier/logBuffer nil
+               (com.serotonin.bacnet4j.service.confirmed.ReadRangeRequest$BySequenceNumber.
+                (UnsignedInteger. ref-index)
+                (SignedInteger. record-count)))
+          results (.send local-device remote-device read-range-request)
+          get-time (fn [data-value](.toString
+                                        (org.joda.time.DateTime.
+                                         (.getTimeMillis (.getTimestamp data-value)))))]
+      (map #(cond (= 2 (.getChoiceType %)) ;choice :  2 = Real, 0 Log disabled buffer purged, 9 Time change
+                  {:value (.toString (.getReal %)) :time (get-time %)}
+                  (= 0 (.getChoiceType %))
+                  {:log-status (.toString (.getLogStatus %)) :time (get-time %)}
+                  (= 9 (.getChoiceType %))
+                  {:time-change (.toString (.getTimeChange %)) :time (get-time %)})           
+           (.getValues (.getItemData results))))))
 
-
-(defn bacnet-test []
-  (with-local-device [ld (new-local-device)]
-                      (let [rds (get-remote-devices-and-info ld)]
-                        (remote-devices-object-and-properties ld rds))))
-
-(defn get-remote-devices-list
-  "Mostly for development; return a list of remote devices ID"
-  []
-  (with-local-device [ld (new-local-device)]
-    (.sendBroadcast ld (WhoIsRequest.))
-    (Thread/sleep 500)
-    (for [rd (.getRemoteDevices ld)]
-      (.getInstanceNumber rd))))
 
 (defn atomic-read-file
   "Return the file as a BACnet octet string"
-  [local-device remote-device object-identifier]
+  [remote-device object-identifier]
   (let [properties (.readProperties local-device remote-device
                                     (get-properties-references local-device remote-device
                                                                [object-identifier]))
@@ -304,11 +288,11 @@ java method `terminate'."
      (.send local-device remote-device
             (AtomicReadFileRequest. object-identifier record-access (SignedInteger. 0) file-size)))))
 
-    
 
 (defn backup
-  "Export the configuration files form a device."
-  [local-device remote-device password]
+  "Get the configuration files form a device as byte-arrays. If error,
+  return a string describing it."
+  [remote-device password]
     ;; First prepare the device (backup mode)
   (try
     (.send local-device remote-device 
@@ -325,42 +309,87 @@ java method `terminate'."
       ;;export the files
       (doall ;force immediate evaluation before ending the backup procedure
        (for [cfile config-files]
-         (let [file-bytes (.getBytes (atomic-read-file local-device remote-device cfile))]
-           (with-open [out (java.io.FileOutputStream. (.toString cfile))]
-             (.write out (byte-array file-bytes)))))))
-    (catch Exception e (str "caught exception: " (.getMessage e)))
+         (.getBytes (atomic-read-file local-device remote-device cfile)))))
+    (catch Exception e (str "error: " (.getMessage e)))
     ;; Finally exit backup mode
     (finally
-     (.send local-device remote-device 
-            (ReinitializeDeviceRequest.
-             com.serotonin.bacnet4j.service.confirmed.ReinitializeDeviceRequest$ReinitializedStateOfDevice/endbackup
-             (CharacterString. password))))))
+     (try 
+       (.send local-device remote-device 
+              (ReinitializeDeviceRequest.
+               com.serotonin.bacnet4j.service.confirmed.ReinitializeDeviceRequest$ReinitializedStateOfDevice/endbackup
+               (CharacterString. password)))
+       (catch Exception e (str "error: " (.getMessage e)))))))
+
+(defn encode-base-64 [byte-array]
+  (String. (b64/encode byte-array)))
+
+         ;; (let [file-bytes (.getBytes (atomic-read-file local-device remote-device cfile))]
+         ;;   (with-open [out (java.io.FileOutputStream. (.toString cfile))]
+         ;;     (.write out (byte-array file-bytes)))))))
 
 
-(defn get-trend-log-data [local-device remote-device object-identifier]
-   (let [refs (PropertyReferences.)]
-     (doseq [pid [PropertyIdentifier/totalRecordCount
-                 PropertyIdentifier/recordCount]]
-      (.add refs object-identifier pid))
-    (let [prop-values (.readProperties local-device remote-device refs)
-          total-record-count (.intValue
-                        (.get prop-values object-identifier PropertyIdentifier/totalRecordCount))
-          record-count (.intValue (.get prop-values object-identifier PropertyIdentifier/recordCount))
-          ref-index (+ 1 (- total-record-count record-count)) ; +1, otherwise risk an out-of-range error
-          read-range-request (ReadRangeRequest.
-               object-identifier PropertyIdentifier/logBuffer nil
-               (com.serotonin.bacnet4j.service.confirmed.ReadRangeRequest$BySequenceNumber.
-                (UnsignedInteger. ref-index)
-                (SignedInteger. record-count)))
-          results (.send local-device rd read-range-request)
-          get-time (fn [data-value](.toString
-                                        (org.joda.time.DateTime.
-                                         (.getTimeMillis (.getTimestamp data-value)))))]
-      (map #(cond (= 2 (.getChoiceType %)) ;choice :  2 = Real, 0 Log disabled buffer purged, 9 Time change
-                  {:value (.toString (.getReal %)) :time (get-time %)}
-                  (= 0 (.getChoiceType %))
-                  {:log-status (.toString (.getLogStatus %)) :time (get-time %)}
-                  (= 9 (.getChoiceType %))
-                  {:time-change (.toString (.getTimeChange %)) :time (get-time %)})           
-           (.getValues (.getItemData results))))))
+(defn get-backup-and-encode 
+  [remote-device password]
+  (let [backup-files (backup remote-device password)]
+    (if-not (string? backup-files)
+      (map #(encode-base-64 %) backup-files))))
+
+(defn get-properties-values-for-remote-device
+  [remote-device seq-object-identifiers property-references
+   & {:keys [get-trend-log get-backup]}]
+  (let [property-values (-> local-device
+                            (.readProperties remote-device property-references))]
+    (doall (map #(let [object-type (.toString (.getObjectType %))
+                object-integer (.intValue (.getObjectType %))
+                object-instance (.getInstanceNumber %)
+                results (hash-map :object-type object-type
+                                  :object-int object-integer
+                                  :object-instance object-instance
+                                  :object-properties
+                                  (get-properties-values-for-object
+                                   property-values %
+                                   (prop-ID-by-object-type object-integer)))]
+                   ; now get more specific info
+            (cond (and (= object-integer 20) get-trend-log) ;trend-log
+                  (assoc results :trend-log-data (get-trend-log-data remote-device %))
+                  :else results))
+            seq-object-identifiers))))
+  
+  
+(defn remote-devices-object-and-properties
+  "Return a map of object and properties for the remote devices."
+  [remote-devices & {:keys [get-trend-log get-backup password]}]
+  (let [rds remote-devices
+        seq-oids (map #(get-object-identifiers %) rds)] ;delay needed?
+    (into {} (map (fn [rd oids]
+                  (let [prop-refs (get-properties-references rd oids)
+                        objects (get-properties-values-for-remote-device
+                                 rd oids prop-refs :get-trend-log get-trend-log)
+                        backup-data (get-backup-and-encode remote-device password)
+                        results (hash-map (keyword (str (.getInstanceNumber rd)))
+                                          {:update (.toString (now))
+                                           :objects objects})]
+                    (if (and get-backup backup-data )
+                      (assoc results :backup-data backup-data)
+                        results)))
+                  rds seq-oids))))
+
+
+(defn bacnet-test []
+  (with-local-device (new-local-device)
+    (let [rds (get-remote-devices-and-info)]
+      (remote-devices-object-and-properties rds :get-trend-log true :get-backup true))))
+
+(defn get-remote-devices-list
+  "Mostly for development; return a list of remote devices ID"
+  []
+  (with-local-device (new-local-device)
+    (.sendBroadcast local-device (WhoIsRequest.))
+    (Thread/sleep 500)
+    (for [rd (.getRemoteDevices local-device)]
+      (.getInstanceNumber rd))))
+
+    
+  
+
 
