@@ -2,9 +2,9 @@
   (:use [hiccup.form :as form]
             [bacnet-scan.export :as exp]
             [bacnet-scan.helpfn]
-            [clj-time.core :only (now)])
-  (:require [clojure.repl]
-            [clojure.data.codec.base64 :as b64]))
+            [clj-time.core :only (now)]
+            [gzip64.core])
+  (:require [clojure.repl])
 
 (import 'java.util.ArrayList)
 (import 'java.util.List)
@@ -337,19 +337,12 @@ java method `terminate'."
                (CharacterString. password)))
        (catch Exception e (str "error: " (.getMessage e)))))))
 
-(defn encode-base-64 [byte-array]
-  (String. (b64/encode byte-array)))
-
-         ;; (let [file-bytes (.getBytes (atomic-read-file local-device remote-device cfile))]
-         ;;   (with-open [out (java.io.FileOutputStream. (.toString cfile))]
-         ;;     (.write out (byte-array file-bytes)))))))
-
 
 (defn get-backup-and-encode 
   [remote-device password]
   (let [backup-files (backup remote-device password)]
     (if-not (string? backup-files)
-      (into [] (map #(encode-base-64 (byte-array %)) backup-files)))))
+      (into [] (map #(gzip64 (byte-array %)) backup-files)))))
 
 (defn get-properties-values-for-remote-device
   [remote-device seq-object-identifiers property-references
