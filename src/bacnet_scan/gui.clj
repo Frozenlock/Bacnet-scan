@@ -7,25 +7,38 @@
         [seesaw.core]
         [seesaw.swingx]
         [seesaw.dev :only (show-options)]
-        [seesaw.mig]))
+        [seesaw.mig]
+        [seesaw.bind :only (bind)]
+        [overtone.at-at]))
 
 (defn display-in-frame [frame content]
   (config! frame :content content)
   content)
 
+(defn valid-ip? "Check for a valid xx.xx.xx.xx IPv4 format. Does NOT
+check to see if values are below 255."
+  [string]
+  (re-matches #"\A\d{1,3}[.]\d{1,3}[.]\d{1,3}[.]\d{1,3}\z" string))
 
-(defn found-devices-widget [local-device]
-  (let [remote-devices (sort (for [rd (.getRemoteDevices local-device)]
-                               (str "Device "(.getInstanceNumber rd) " "
-                                    (.getName rd))))]
-    (scrollable (listbox :model remote-devices
-                         :tip "Those are the devices found on the network"
-                         :id :#rd))))
+(defn found-devices-widget []
+  (let [a (atom [])
+        remote-devices-list
+        (listbox :model []
+                 :tip "Those are the devices found on the network"
+                 :id :#rd)
+        my-pool (mk-pool)
+        rescan (every 2000 #(reset! a (get-remote-devices-list)) my-pool)]
+    (seesaw.bind/bind a (seesaw.bind/property remote-devices-list :model))
+   ; (reset! a (get-remote-devices-list))
+    (scrollable remote-devices-list)))
+  
+
+
 
 (defn scanning-bacnet-network [remote-devices]
   "Show a listbox with every remote devices found in the network"
   (native!)
-  (let [f (frame :title "Bacnet network scan")
+  (let [f (frame :title "BACnethelp network scan")
         content (mig-panel
                  :constraints ["wrap 2"
                                "[shrink 0]20px[200, grow, fill]"
@@ -58,16 +71,29 @@
 
 (defn query-user2 [& {:keys [on-close]}]
   (native!)
-  (let [remote-devices (atom [])
+  (let [my-pool (mk-pool)
+        remote-devices (atom [])
+        remote-devices-list (listbox :model []
+                                     :tip "Those are the devices found on the network. The scan might reveal more."
+                                     :id :#rd)
         local-ip (get-ip)
-        broadcast-ip (broadcast-address local-ip)
+        bc-address (atom (broadcast-address local-ip))
+        bc-address-text (text :id :bc-address :text @bc-address)
+        rescan (every 5000
+                      #(when (valid-ip? @bc-address)
+                         (reset! remote-devices (get-remote-devices-list
+                                                 :local-device
+                                                 (new-local-device ;:device-id (parse-or-nil devID)
+                                                  :broadcast-address @bc-address
+                                        ;:port (parse-or-nil dest-port))
+                                                  )))) my-pool)
         button (button :id :scan-button
-                       :text "Scan"
+                       :text "Scan!"
                        :font {:name "ARIAL" :style :bold :size 18})
-        bd-address [["Broadcast address:"] [(text :id :bc-address :text broadcast-ip)]]
+
         local-ip [["Current IP:"] [(text :id :IP :text local-ip)]]
-        scan-export (fn [ld rds]
-                      (exp/spit-to-html "Bacnet-help" (remote-devices-object-and-properties ld rds))
+        scan-export (fn [rds]
+                      (exp/spit-to-html "Bacnet-help" (remote-devices-object-and-properties rds))
                       (scan-completed))
         scan (listen button
                      :action (fn [e]
@@ -76,20 +102,17 @@
                                      bc-address (text (select (to-root e) [:#bc-address]))
                                      lower-range (text (select (to-root e) [:#lower-range]))
                                      upper-range (text (select (to-root e) [:#upper-range]))]
-                                 (with-local-device
-                                   [ld (new-local-device)]
+                                 (with-local-device (new-local-device :device-id (parse-or-nil devID)
+                                                                      :broadcast-address bc-address
+                                                                      :port (parse-or-nil dest-port))
                                    (let [rds
                                          (get-remote-devices-and-info
-                                          ld
                                           :min (parse-or-nil lower-range)
                                           :max (parse-or-nil upper-range)
-                                          :dest-port (parse-or-nil dest-port))
-                                         remote-devices (sort (for [rd rds]
-                                                                (str "Device "(.getInstanceNumber rd) " "
-                                                                     (.getName rd))))]
-                                     (config! (select (to-root e) [:#rd])
-                                              :model remote-devices)
-                                     (scan-export ld rds))))))]                                    
+                                          :dest-port (parse-or-nil dest-port))]
+                                     (scan-export rds))))))]
+    (seesaw.bind/bind bc-address-text bc-address)
+    (seesaw.bind/bind remote-devices (seesaw.bind/property remote-devices-list :model))
     (->
      (frame :title "Bacnet Network Scan"
             :on-close (or on-close :hide)
@@ -99,59 +122,21 @@
                            "[shrink 0]20px[300, grow, fill]"]
              :items [[button "grow, span"]
                      [:separator         "grow, span,"]
-                     ["Found devices:"]
-                     [(scrollable (listbox-x :model []
-                                             :tip "Those are the devices found on the network"
-                                             :id :rd))]
+                     ["Found devices (update 5s):"]
+                     [(scrollable remote-devices-list)]
                      ["The results are exported to an html file in the same folder as this executable." "wrap, span"]
                      [:separator         "grow, span,"]
                      ["Settings" "span, center"]
                      ["Device ID: (0 to 4194303)"][(text :id :devID :text "1337")]
                      ["Range min"][(text :id :lower-range)] ["Range max"][(text :id :upper-range)]
-                     ["Broadcast address:"] [(text :id :bc-address :text broadcast-ip)]
-                     ["Destination port (default 47808):"][(text :id :dest-port :text "47808")]]))
+                     ["Broadcast address:"] [bc-address-text]
+                     ["Destination port (default 47808):"][(text :id :dest-port :text "47808")]
+                     ["Download trendlogs"][(checkbox :id :trendlogs :text "Can take a while...")]
+                     ["Download devices backups"][(checkbox :id :backups :selected? true
+                                                    :text "Highly recommended")]]))
      (pack!)
-     (show!))))
-                      
+     (show!))rescan))
 
-;; (defn query-user []
-;;   "Open a dialog window for the user. Return this map: {:devID
-;; foo, :bc-address foo, :port foo}"
-;;   (native!)
-;;   (let [current-ip (.getHostAddress (java.net.InetAddress/getLocalHost))
-;;         possible-bc-ip (join "." (concat (take 3 (split current-ip #"\.")) ["255"]))]
-;;     (->
-;;      (dialog :title "BACnet configuration"
-;;              :content
-;;              (mig-panel
-;;               :constraints ["wrap 2"
-;;                             "[shrink 0]20px[200, grow, fill]"
-;;                             "[shrink 0]5px[]"]
-;;               :items [["Device ID: (0 to 4194303)"] [(text :id :devID)                          ]
-;;                       [ "Advanced"        "split, span, gaptop 10"]
-;;                       [ :separator         "growx, wrap, gaptop 10"]
-;;                       ["Range min"][(text :id :lower-range)]
-;;                       ["Range max"][(text :id :upper-range)]
-;;                       ["Broadcast address:"       ] [(text :id :bc-address :text possible-bc-ip)]
-;;                       ["Current IP:"              ] [(text :id :IP :text current-ip)            ]
-;;                       ["Destination port (default 47808):"    ] [(text :id :dest-port :text "47808")]])
-;;              :option-type :ok-cancel
-;;              :type :question
-;;              :success-fn
-;;              (fn [p] {:device-id (Integer/parseInt
-;;                                   (text (select (to-root p) [:#devID]))),
-;;                       :broadcast-address (text (select (to-root p) [:#bc-address])),
-;;                       :local-address (text (select (to-root p) [:#IP])),
-;;                       :dest-port (Integer/parseInt
-;;                              (text (select (to-root p) [:#dest-port])))
-;;                       :lower-range (let [lr (text (select (to-root p) [:#lower-range]))]
-;;                                      (when-not (empty? lr)
-;;                                        (Integer/parseInt lr)))
-;;                       :upper-range (let [ur (text (select (to-root p) [:#upper-range]))]
-;;                                      (when-not (empty? ur)
-;;                                        (Integer/parseInt ur)))}))
-;;      (pack!)
-;;      (show!))))
 
 
 

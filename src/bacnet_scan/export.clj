@@ -1,6 +1,7 @@
 (ns bacnet-scan.export
   (:require [hiccup.form :as form])
-  (:use [hiccup.page :only (html5)]))
+  (:use [hiccup.page :only (html5)]
+        [gzip64.core]))
 
 (import 'java.util.Calendar)
 

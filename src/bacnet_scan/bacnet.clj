@@ -1,10 +1,10 @@
 (ns bacnet-scan.bacnet
   (:use [hiccup.form :as form]
-            [bacnet-scan.export :as exp]
-            [bacnet-scan.helpfn]
-            [clj-time.core :only (now)]
-            [gzip64.core])
-  (:require [clojure.repl])
+        [bacnet-scan.export :as exp]
+        [bacnet-scan.helpfn]
+        [clj-time.core :only (now)]
+        [clojure.data.codec.base64 :as b64])
+  (:require [clojure.repl]))
 
 (import 'java.util.ArrayList)
 (import 'java.util.List)
@@ -338,11 +338,14 @@ java method `terminate'."
        (catch Exception e (str "error: " (.getMessage e)))))))
 
 
+(defn encode-base-64 [byte-array]
+  (String. (b64/encode byte-array)))
+
 (defn get-backup-and-encode 
   [remote-device password]
   (let [backup-files (backup remote-device password)]
     (if-not (string? backup-files)
-      (into [] (map #(gzip64 (byte-array %)) backup-files)))))
+      (into [] (map #(encode-base-64 (byte-array %)) backup-files)))))
 
 (defn get-properties-values-for-remote-device
   [remote-device seq-object-identifiers property-references
@@ -392,8 +395,8 @@ java method `terminate'."
 
 (defn get-remote-devices-list
   "Mostly for development; return a list of remote devices ID"
-  []
-  (with-local-device (new-local-device)
+  [& {:keys [local-device] :or {local-device (new-local-device)}}]
+  (with-local-device local-device
     (.sendBroadcast local-device (WhoIsRequest.))
     (Thread/sleep 500)
     (for [rd (.getRemoteDevices local-device)]
