@@ -395,14 +395,12 @@ java method `terminate'."
 
 (defn get-remote-devices-list
   "Mostly for development; return a list of remote devices ID"
-  [& {:keys [local-device] :or {local-device (new-local-device)}}]
+  [& {:keys [local-device dest-port] :or {local-device (new-local-device) dest-port 47808}}]
   (with-local-device local-device
-    (.sendBroadcast local-device (WhoIsRequest.))
+    (.sendBroadcast local-device dest-port (WhoIsRequest.))
     (Thread/sleep 500)
     (for [rd (.getRemoteDevices local-device)]
       (.getInstanceNumber rd))))
 
     
   
-
-

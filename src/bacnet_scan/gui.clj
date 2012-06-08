@@ -8,8 +8,8 @@
         [seesaw.swingx]
         [seesaw.dev :only (show-options)]
         [seesaw.mig]
-        [seesaw.bind :only (bind)]
-        [overtone.at-at]))
+        [overtone.at-at])
+  (:require [seesaw.bind :as b]))
 
 (defn display-in-frame [frame content]
   (config! frame :content content)
@@ -62,11 +62,12 @@ check to see if values are below 255."
 
 
 (defn parse-or-nil
-  "Return the parsed string as an integer, or nil if the sting is empty"
+  "Return the parsed string as an integer, or nil if there's garbage"
   [string]
-  (if (empty? string)
-    nil
-    (Integer/parseInt string)))
+  (let [result (try (Integer/parseInt string)
+                    (catch Exception e))]
+    (if (number? result)
+      result nil)))
   
 
 (defn query-user2 [& {:keys [on-close]}]
@@ -79,63 +80,82 @@ check to see if values are below 255."
         local-ip (get-ip)
         bc-address (atom (broadcast-address local-ip))
         bc-address-text (text :id :bc-address :text @bc-address)
-        rescan (every 5000
-                      #(when (valid-ip? @bc-address)
-                         (reset! remote-devices (get-remote-devices-list
-                                                 :local-device
-                                                 (new-local-device ;:device-id (parse-or-nil devID)
-                                                  :broadcast-address @bc-address
-                                        ;:port (parse-or-nil dest-port))
-                                                  )))) my-pool)
+        dest-port (atom 47808)
+        dest-port-text (text :id :dest-port :text @dest-port)
+        lower-range (atom nil)
+        lower-range-text (text :id :lower-range)
+        upper-range (atom nil)
+        upper-range-text (text :id :upper-range)
+        get-trend-logs (atom false)
+        get-trend-logs-checkbox (checkbox :id :trendlogs :text "Can take a while...")
+        get-backups (atom true)
+        get-backups-text (checkbox :id :backups :selected? true :text "Highly recommended")
+        device-id (atom 1337)
+        device-id-text (text :id :devID :text (str @device-id))
+        rescan-fn (fn []
+                    (every 5000
+                           #(reset!
+                             remote-devices (get-remote-devices-list
+                                             :dest-port @dest-port
+                                             :local-device
+                                             (new-local-device ;:device-id (parse-or-nil devID)
+                                              :broadcast-address @bc-address))) my-pool))
+        rescan (atom (rescan-fn))
         button (button :id :scan-button
                        :text "Scan!"
                        :font {:name "ARIAL" :style :bold :size 18})
 
         local-ip [["Current IP:"] [(text :id :IP :text local-ip)]]
         scan-export (fn [rds]
-                      (exp/spit-to-html "Bacnet-help" (remote-devices-object-and-properties rds))
-                      (scan-completed))
+                      (stop @rescan)
+                      (exp/spit-to-html "Bacnet-help" (remote-devices-object-and-properties
+                                                       rds
+                                                       :get-trend-log @get-trend-logs
+                                                       :get-backup @get-backups
+                                                       :password ""))
+                      (scan-completed)
+                      (reset! rescan (rescan-fn)))
         scan (listen button
                      :action (fn [e]
-                               (let [devID (text (select (to-root e) [:#devID]))
-                                     dest-port (text (select (to-root e) [:#dest-port]))
-                                     bc-address (text (select (to-root e) [:#bc-address]))
-                                     lower-range (text (select (to-root e) [:#lower-range]))
-                                     upper-range (text (select (to-root e) [:#upper-range]))]
-                                 (with-local-device (new-local-device :device-id (parse-or-nil devID)
-                                                                      :broadcast-address bc-address
-                                                                      :port (parse-or-nil dest-port))
-                                   (let [rds
-                                         (get-remote-devices-and-info
-                                          :min (parse-or-nil lower-range)
-                                          :max (parse-or-nil upper-range)
-                                          :dest-port (parse-or-nil dest-port))]
-                                     (scan-export rds))))))]
-    (seesaw.bind/bind bc-address-text bc-address)
-    (seesaw.bind/bind remote-devices (seesaw.bind/property remote-devices-list :model))
-    (->
-     (frame :title "Bacnet Network Scan"
-            :on-close (or on-close :hide)
-            :content
-            (mig-panel
-             :constraints ["wrap 2"
-                           "[shrink 0]20px[300, grow, fill]"]
-             :items [[button "grow, span"]
-                     [:separator         "grow, span,"]
-                     ["Found devices (update 5s):"]
-                     [(scrollable remote-devices-list)]
-                     ["The results are exported to an html file in the same folder as this executable." "wrap, span"]
-                     [:separator         "grow, span,"]
-                     ["Settings" "span, center"]
-                     ["Device ID: (0 to 4194303)"][(text :id :devID :text "1337")]
-                     ["Range min"][(text :id :lower-range)] ["Range max"][(text :id :upper-range)]
-                     ["Broadcast address:"] [bc-address-text]
-                     ["Destination port (default 47808):"][(text :id :dest-port :text "47808")]
-                     ["Download trendlogs"][(checkbox :id :trendlogs :text "Can take a while...")]
-                     ["Download devices backups"][(checkbox :id :backups :selected? true
-                                                    :text "Highly recommended")]]))
-     (pack!)
-     (show!))rescan))
+                               (with-local-device (new-local-device :device-id @device-id
+                                                                    :broadcast-address @bc-address)
+                                 (let [rds
+                                       (get-remote-devices-and-info
+                                        :min @lower-range
+                                        :max @upper-range
+                                        :dest-port @dest-port)]
+                                   (scan-export rds)))))]
+    (b/bind bc-address-text (b/transform #(or (valid-ip? %) @bc-address)) bc-address)
+    (b/bind dest-port-text (b/transform #(or (parse-or-nil %) @dest-port)) dest-port)
+    (b/bind lower-range-text (b/transform #(or (parse-or-nil %) @lower-range)) lower-range)
+    (b/bind upper-range-text (b/transform #(or (parse-or-nil %) @upper-range)) upper-range)
+    (b/bind device-id-text (b/transform #(or (parse-or-nil %) @device-id)) device-id)
+    (b/bind remote-devices (b/property remote-devices-list :model))
+    (let [f
+          (frame :title "Bacnet Network Scan"
+                 :on-close (or on-close :hide)
+                 :content
+                 (mig-panel
+                  :constraints ["wrap 2"
+                                "[shrink 0]20px[300, grow, fill]"]
+                  :items [[button "grow, span"]
+                          [:separator         "grow, span,"]
+                          ["Found devices (update 5s):"]
+                          [(scrollable remote-devices-list)]
+                          ["The results are exported to an html file in the same folder as this executable." "wrap, span"]
+                          [:separator         "grow, span,"]
+                          ["Settings" "span, center"]
+                          ["Device ID: (0 to 4194303)"][device-id-text]
+                          ["Range min"][lower-range-text] ["Range max"][upper-range-text]
+                          ["Broadcast address:"] [bc-address-text]
+                          ["Destination port (default 47808):"][dest-port-text]
+                          ["Download trendlogs"][get-trend-logs-checkbox]
+                          ["Download devices backups"][get-backups-text]]))]
+      (b/bind (b/selection (select f [:#trendlogs])) get-trend-logs)
+      (b/bind (b/selection (select f [:#backups])) get-backups)
+      (-> f
+          (pack!)
+          (show!))) @rescan))
 
 
 
