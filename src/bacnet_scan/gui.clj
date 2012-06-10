@@ -9,7 +9,8 @@
         [seesaw.dev :only (show-options)]
         [seesaw.mig]
         [overtone.at-at])
-  (:require [seesaw.bind :as b]))
+  (:require [seesaw.bind :as b]
+            [clojure.java.browse]))
 
 (defn display-in-frame [frame content]
   (config! frame :content content)
@@ -38,16 +39,16 @@ check to see if values are below 255."
 (defn scanning-bacnet-network [remote-devices]
   "Show a listbox with every remote devices found in the network"
   (native!)
-  (let [f (frame :title "BACnethelp network scan")
+  (let [devices-list (for [rd remote-devices]
+                       (.getInstanceNumber rd))
+        f (frame :title "BACnet Help network scan in action")
         content (mig-panel
                  :constraints ["wrap 2"
                                "[shrink 0]20px[200, grow, fill]"
                                "[shrink 0]5px[]"]
                  :items [[(str "Found " (count remote-devices) " device(s).")]
-                         [(scrollable (listbox-x :model remote-devices
-                                                 :sort-order :ascending
-                                                 :highlighters [(hl-simple-striping)
-                                                                ((hl-color :background :darkgreen) :rollover-row)]))  "span 1 2"]
+                         [(scrollable (listbox-x :model devices-list
+                                                 :sort-order :ascending))  "span 1 2"]
                           [(busy-label :text "Scanning ..." :busy? true)]])]
     (display-in-frame f content)
     (-> f (pack!) (show!))))
@@ -70,7 +71,7 @@ check to see if values are below 255."
       result nil)))
   
 
-(defn query-user2 [& {:keys [on-close]}]
+(defn query-user [& {:keys [on-close]}]
   (native!)
   (let [my-pool (mk-pool)
         remote-devices (atom [])
@@ -92,6 +93,8 @@ check to see if values are below 255."
         get-backups-text (checkbox :id :backups :selected? true :text "Highly recommended")
         device-id (atom 1337)
         device-id-text (text :id :devID :text (str @device-id))
+        password (atom "")
+        password-text (text :id :password :text @password)
         rescan-fn (fn []
                     (every 5000
                            #(reset!
@@ -103,20 +106,25 @@ check to see if values are below 255."
         rescan (atom (rescan-fn))
         button (button :id :scan-button
                        :text "Scan!"
-                       :font {:name "ARIAL" :style :bold :size 18})
-
+                       :font {:name "ARIAL" :style :bold :size 18}
+                       :enabled? false)
+        progress (progress-bar :indeterminate? true :visible? false)
+        hyperlink (hyperlink :uri "https://bacnethelp.com"
+                             :text "BACnet Help"
+                             :font {:name "ARIAL" :size 11})
         local-ip [["Current IP:"] [(text :id :IP :text local-ip)]]
         scan-export (fn [rds]
-                      (stop @rescan)
-                      (exp/spit-to-html "Bacnet-help" (remote-devices-object-and-properties
-                                                       rds
-                                                       :get-trend-log @get-trend-logs
-                                                       :get-backup @get-backups
-                                                       :password ""))
-                      (scan-completed)
-                      (reset! rescan (rescan-fn)))
+                      (clojure.java.browse/browse-url
+                       (str "file://"
+                            (exp/spit-to-html "Bacnet-help" (remote-devices-object-and-properties
+                                                             rds
+                                                             :get-trend-log @get-trend-logs
+                                                             :get-backup @get-backups
+                                                             :password @password)))))
         scan (listen button
                      :action (fn [e]
+                               (stop @rescan)
+                               (config! progress :visible? true)
                                (with-local-device (new-local-device :device-id @device-id
                                                                     :broadcast-address @bc-address)
                                  (let [rds
@@ -124,25 +132,30 @@ check to see if values are below 255."
                                         :min @lower-range
                                         :max @upper-range
                                         :dest-port @dest-port)]
-                                   (scan-export rds)))))]
+                                   (scan-export rds)))
+                               (config! progress :visible? false)
+                               (reset! rescan (rescan-fn))))]
     (b/bind bc-address-text (b/transform #(or (valid-ip? %) @bc-address)) bc-address)
     (b/bind dest-port-text (b/transform #(or (parse-or-nil %) @dest-port)) dest-port)
     (b/bind lower-range-text (b/transform #(or (parse-or-nil %) @lower-range)) lower-range)
     (b/bind upper-range-text (b/transform #(or (parse-or-nil %) @upper-range)) upper-range)
     (b/bind device-id-text (b/transform #(or (parse-or-nil %) @device-id)) device-id)
-    (b/bind remote-devices (b/property remote-devices-list :model))
+    (b/bind remote-devices
+            (b/tee (b/bind (b/transform (fn [a] a)) (b/property remote-devices-list :model))
+                   (b/bind (b/transform #(not (empty? %))) (b/property button :enabled?))))
+    (b/bind password-text password)
     (let [f
-          (frame :title "Bacnet Network Scan"
+          (frame :title "BACnet Help Network Scan"
                  :on-close (or on-close :hide)
                  :content
                  (mig-panel
                   :constraints ["wrap 2"
                                 "[shrink 0]20px[300, grow, fill]"]
                   :items [[button "grow, span"]
+                          [progress "grow, span"]
                           [:separator         "grow, span,"]
                           ["Found devices (update 5s):"]
                           [(scrollable remote-devices-list)]
-                          ["The results are exported to an html file in the same folder as this executable." "wrap, span"]
                           [:separator         "grow, span,"]
                           ["Settings" "span, center"]
                           ["Device ID: (0 to 4194303)"][device-id-text]
@@ -150,22 +163,18 @@ check to see if values are below 255."
                           ["Broadcast address:"] [bc-address-text]
                           ["Destination port (default 47808):"][dest-port-text]
                           ["Download trendlogs"][get-trend-logs-checkbox]
-                          ["Download devices backups"][get-backups-text]]))]
+                          ["Download devices backups"][get-backups-text]
+                          ["Backup password (if any):"][password-text]
+                          [:separator         "grow, span,"]
+                          [hyperlink "span, align right"]]))]
+      (b/bind (b/selection
+               (select f [:#backups]))
+              (b/tee (b/bind (b/transform (fn [a] a) ) get-backups)
+                     (b/bind (b/transform (fn [a] a) ) (b/property password-text :enabled?))))
       (b/bind (b/selection (select f [:#trendlogs])) get-trend-logs)
-      (b/bind (b/selection (select f [:#backups])) get-backups)
       (-> f
           (pack!)
           (show!))) @rescan))
 
-
-
-
-(defn remote-devices-dialog
-  "A dialog showing the current remote devices"
-  [local-device]
-  (let [dialog (frame :title "Remote devices" :on-close :exit)]
-    (config! dialog :content (listbox :model (-> local-device (.getRemoteDevices))))
-    (-> dialog pack! show!)))
-
 (defn -main [& args]
-  (query-user2 :on-close :exit))
+  (query-user :on-close :exit))
