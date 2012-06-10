@@ -379,6 +379,7 @@ java method `terminate'."
                           objects (get-properties-values-for-remote-device
                                    rd oids prop-refs :get-trend-log get-trend-log)
                           results {:update (.toString (now))
+                                   :name (.getName rd)
                                    :objects objects}]
                       (hash-map (keyword (str (.getInstanceNumber rd)))
                                 (if-let [backup (and get-backup

@@ -46,8 +46,8 @@ transfered to a webserver."
                   " If you have an Internet connection, click below to send the data to bacnethelp.com and consult it.")
              (str "The scan revealed no BACnet devices. Perhaps you should try again?"))]
        (form/form-to
-                                        ;[:post "https://bacnethelp.com/devices-list"]
-         [:post "https://127.0.0.1:8443/devices-list"]
+        [:post "https://bacnethelp.com/devices-list"]
+                                        ;[:post "https://127.0.0.1:8443/devices-list"]
                      (form/hidden-field "db" (gz64 (str db)))
                      (form/submit-button "Submit to BACnet Help!"))
        [:hr]
