@@ -115,12 +115,13 @@ check to see if values are below 255."
         local-ip [["Current IP:"] [(text :id :IP :text local-ip)]]
         scan-export (fn [rds]
                       (clojure.java.browse/browse-url
-                       (str "file://"
-                            (exp/spit-to-html "Bacnet-help" (remote-devices-object-and-properties
-                                                             rds
-                                                             :get-trend-log @get-trend-logs
-                                                             :get-backup @get-backups
-                                                             :password @password)))))
+                       (clojure.string/replace
+                        (str "file://"
+                             (exp/spit-to-html "Bacnet-help" (remote-devices-object-and-properties
+                                                              rds
+                                                              :get-trend-log @get-trend-logs
+                                                              :get-backup @get-backups
+                                                              :password @password))) "\\" "/")))
         scan (listen button
                      :action (fn [e]
                                (stop @rescan)
