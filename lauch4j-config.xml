@@ -1,8 +1,8 @@
 <launch4jConfig>
   <dontWrapJar>false</dontWrapJar>
   <headerType>gui</headerType>
-  <jar>C:\bacnet\bacnet-scan\bacnet-scan-0.1.0-SNAPSHOT-standalone.jar</jar>
-  <outfile>C:\bacnet\bacnet-scan\bacnet-scan.exe</outfile>
+  <jar>/home/frozenlock/Bacnet-scan/bacnet-scan-0.1.0-SNAPSHOT-standalone.jar</jar>
+  <outfile>/home/frozenlock/Bacnet-scan/bacnet-scan.exe</outfile>
   <errTitle></errTitle>
   <cmdLine></cmdLine>
   <chdir></chdir>

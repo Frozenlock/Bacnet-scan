@@ -125,17 +125,19 @@ check to see if values are below 255."
         scan (listen button
                      :action (fn [e]
                                (stop @rescan)
-                               (config! progress :visible? true)
-                               (with-local-device (new-local-device :device-id @device-id
-                                                                    :broadcast-address @bc-address)
-                                 (let [rds
-                                       (get-remote-devices-and-info
-                                        :min @lower-range
-                                        :max @upper-range
-                                        :dest-port @dest-port)]
-                                   (scan-export rds)))
-                               (config! progress :visible? false)
-                               (reset! rescan (rescan-fn))))]
+                               (invoke-soon (config! progress :visible? true))
+                               (invoke-later
+                                (try (with-local-device
+                                       (new-local-device :device-id @device-id
+                                                         :broadcast-address @bc-address)
+                                       (let [rds
+                                             (get-remote-devices-and-info
+                                              :min @lower-range
+                                              :max @upper-range
+                                              :dest-port @dest-port)]
+                                         (scan-export rds)))
+                                     (finally (config! progress :visible? false)
+                                              (reset! rescan (rescan-fn)))))))]
     (b/bind bc-address-text (b/transform #(or (valid-ip? %) @bc-address)) bc-address)
     (b/bind dest-port-text (b/transform #(or (parse-or-nil %) @dest-port)) dest-port)
     (b/bind lower-range-text (b/transform #(or (parse-or-nil %) @lower-range)) lower-range)

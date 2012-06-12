@@ -5,6 +5,5 @@ pom.xml
 .lein-deps-sum
 /
 *.log
-*.exe
 *.html
 *.bat
