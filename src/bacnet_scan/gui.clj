@@ -126,7 +126,7 @@ check to see if values are below 255."
                      :action (fn [e]
                                (stop @rescan)
                                (invoke-soon (config! progress :visible? true))
-                               (invoke-later
+                               (future
                                 (try (with-local-device
                                        (new-local-device :device-id @device-id
                                                          :broadcast-address @bc-address)
