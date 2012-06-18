@@ -13,6 +13,10 @@
   <stayAlive>false</stayAlive>
   <manifest></manifest>
   <icon></icon>
+  <singleInstance>
+    <mutexName>BACnet-help-scanner</mutexName>
+    <windowTitle></windowTitle>
+  </singleInstance>
   <jre>
     <path></path>
     <minVersion>1.6.0</minVersion>

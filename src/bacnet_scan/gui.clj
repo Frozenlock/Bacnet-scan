@@ -70,14 +70,16 @@ check to see if values are below 255."
     (if (number? result)
       result nil)))
   
+(defn make-device-listbox []
+  (listbox-x :model []
+             :tip "Those are the devices found on the network. The scan might reveal more."
+             :id :#rd :focusable? nil :enabled? nil :sort-order :ascending))
 
 (defn query-user [& {:keys [on-close]}]
   (native!)
   (let [my-pool (mk-pool)
         remote-devices (atom [])
-        remote-devices-list (listbox :model []
-                                     :tip "Those are the devices found on the network. The scan might reveal more."
-                                     :id :#rd)
+        remote-devices-list (make-device-listbox)
         local-ip (get-ip)
         bc-address (atom (broadcast-address local-ip))
         bc-address-text (text :id :bc-address :text @bc-address)
@@ -91,8 +93,8 @@ check to see if values are below 255."
         get-trend-logs-checkbox (checkbox :id :trendlogs :text "Can take a while...")
         get-backups (atom true)
         get-backups-text (checkbox :id :backups :selected? true :text "Highly recommended")
-        device-id (atom 1337)
-        device-id-text (text :id :devID :text (str @device-id))
+        scanner-id (atom 1337)
+        scanner-id-text (text :id :devID :text (str @scanner-id))
         password (atom "")
         password-text (text :id :password :text @password)
         rescan-fn (fn []
@@ -101,7 +103,7 @@ check to see if values are below 255."
                              remote-devices (get-remote-devices-list
                                              :dest-port @dest-port
                                              :local-device
-                                             (new-local-device ;:device-id (parse-or-nil devID)
+                                             (new-local-device ;:scanner-id (parse-or-nil devID)
                                               :broadcast-address @bc-address))) my-pool))
         rescan (atom (rescan-fn))
         button (button :id :scan-button
@@ -128,7 +130,7 @@ check to see if values are below 255."
                                (invoke-soon (config! progress :visible? true))
                                (future
                                 (try (with-local-device
-                                       (new-local-device :device-id @device-id
+                                       (new-local-device :scanner-id @scanner-id
                                                          :broadcast-address @bc-address)
                                        (let [rds
                                              (get-remote-devices-and-info
@@ -142,34 +144,44 @@ check to see if values are below 255."
     (b/bind dest-port-text (b/transform #(or (parse-or-nil %) @dest-port)) dest-port)
     (b/bind lower-range-text (b/transform #(or (parse-or-nil %) @lower-range)) lower-range)
     (b/bind upper-range-text (b/transform #(or (parse-or-nil %) @upper-range)) upper-range)
-    (b/bind device-id-text (b/transform #(or (parse-or-nil %) @device-id)) device-id)
+    (b/bind scanner-id-text (b/transform #(or (parse-or-nil %) @scanner-id)) scanner-id)
     (b/bind remote-devices
             (b/tee (b/bind (b/transform (fn [a] a)) (b/property remote-devices-list :model))
                    (b/bind (b/transform #(not (empty? %))) (b/property button :enabled?))))
     (b/bind password-text password)
-    (let [f
-          (frame :title "BACnet Help Network Scan"
+    (let [north-panel (mig-panel
+                       :constraints ["wrap 2" "[shrink 0]20px[300, grow, fill]"]
+                       :items [[button "grow, span"]
+                               [progress "grow, span"]
+                               [:separator         "grow, span,"]
+                               ["Found devices (update 5s):"]
+                               [(scrollable remote-devices-list)]])
+          center-pane
+          (task-pane :collapsed? true :title "Advanced settings" :scroll-on-expand? true
+                     :items
+                     [(mig-panel
+                       :constraints ["wrap 2" "[shrink 0]20px[300, grow, fill]"]
+                       :items [
+                               [:separator         "grow, span,"]
+                               ["Settings" "span, center"]
+                               ["Scanner ID: (0 to 4194303)"][scanner-id-text]
+                               ["Range min"][lower-range-text] ["Range max"][upper-range-text]
+                               ["Broadcast address:"] [bc-address-text]
+                               ["Destination port (default 47808):"][dest-port-text]
+                               ["Download trendlogs"][get-trend-logs-checkbox]
+                               ["Download devices backups"][get-backups-text]
+                               ["Backup password (if any):"][password-text]])])
+          f
+          (frame :title "BACnet Help Network Scan" :minimum-size  [400 :by 375]
                  :on-close (or on-close :hide)
                  :content
-                 (mig-panel
-                  :constraints ["wrap 2"
-                                "[shrink 0]20px[300, grow, fill]"]
-                  :items [[button "grow, span"]
-                          [progress "grow, span"]
-                          [:separator         "grow, span,"]
-                          ["Found devices (update 5s):"]
-                          [(scrollable remote-devices-list)]
-                          [:separator         "grow, span,"]
-                          ["Settings" "span, center"]
-                          ["Device ID: (0 to 4194303)"][device-id-text]
-                          ["Range min"][lower-range-text] ["Range max"][upper-range-text]
-                          ["Broadcast address:"] [bc-address-text]
-                          ["Destination port (default 47808):"][dest-port-text]
-                          ["Download trendlogs"][get-trend-logs-checkbox]
-                          ["Download devices backups"][get-backups-text]
-                          ["Backup password (if any):"][password-text]
-                          [:separator         "grow, span,"]
-                          [hyperlink "span, align right"]]))]
+                 (scrollable
+                  (border-panel
+                   :north north-panel
+                   :center (task-pane-container :items [center-pane])
+                   :south (mig-panel :constraints ["wrap 2"
+                                                   "[shrink 0]20px[300, grow, fill]"]
+                                     :items [[hyperlink "span, align right"]]))))]
       (b/bind (b/selection
                (select f [:#backups]))
               (b/tee (b/bind (b/transform (fn [a] a) ) get-backups)
