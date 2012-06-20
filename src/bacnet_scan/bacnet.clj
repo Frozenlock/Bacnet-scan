@@ -378,8 +378,12 @@ java method `terminate'."
                     (let [prop-refs (get-properties-references rd oids)
                           objects (get-properties-values-for-remote-device
                                    rd oids prop-refs :get-trend-log get-trend-log)
+                          address (.getAddress rd)
                           results {:update (.toString (now))
                                    :name (.getName rd)
+                                   :ip-address (.toIpString address)
+                                   :mac-address (.toString (.getMacAddress address))
+                                   :network-number (.intValue (.getNetworkNumber address))
                                    :objects objects}]
                       (hash-map (keyword (str (.getInstanceNumber rd)))
                                 (if-let [backup (and get-backup
