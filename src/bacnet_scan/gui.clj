@@ -12,14 +12,27 @@
   (:require [seesaw.bind :as b]
             [clojure.java.browse]))
 
+(import java.net.InetAddress java.net.Inet4Address)
+
 (defn display-in-frame [frame content]
   (config! frame :content content)
   content)
 
-(defn valid-ip? "Check for a valid xx.xx.xx.xx IPv4 format. Does NOT
-check to see if values are below 255."
-  [string]
-  (re-matches #"\A\d{1,3}[.]\d{1,3}[.]\d{1,3}[.]\d{1,3}\z" string))
+;; (defn valid-ip? "Check for a valid xx.xx.xx.xx IPv4 format. Does NOT
+;; check to see if values are below 255."
+;;   [string]
+;;   (re-matches #"\A\d{1,3}[.]\d{1,3}[.]\d{1,3}[.]\d{1,3}\z" string))
+
+(defn resolve-dns
+  "Return the IP of a given url, or simply return the IP unchanged"
+  [IP-or-url]
+  (if-not (re-matches #"\d\d?\d?\.\d\d?\d?\.\d\d?\d?\.\d\d?\d?" IP-or-url)
+    (.getHostAddress
+     (->> (InetAddress/getAllByName IP-or-url) 
+          (filter #(instance? Inet4Address %))
+          (first)))
+    IP-or-url))
+
 
 (defn found-devices-widget []
   (let [a (atom [])
@@ -104,7 +117,10 @@ check to see if values are below 255."
                                              :dest-port @dest-port
                                              :local-device
                                              (new-local-device ;:scanner-id (parse-or-nil devID)
-                                              :broadcast-address @bc-address))) my-pool))
+                                              :broadcast-address (resolve-dns @bc-address)
+                                              :port @dest-port)))
+                                        ;some devices wrongly send back to their own port #
+                           my-pool))
         rescan (atom (rescan-fn))
         button (button :id :scan-button
                        :text "Scan!"
@@ -131,7 +147,8 @@ check to see if values are below 255."
                                (future
                                 (try (with-local-device
                                        (new-local-device :scanner-id @scanner-id
-                                                         :broadcast-address @bc-address)
+                                                         :broadcast-address @bc-address
+                                                         :port @dest-port)
                                        (let [rds
                                              (get-remote-devices-and-info
                                               :min @lower-range
@@ -140,7 +157,7 @@ check to see if values are below 255."
                                          (scan-export rds)))
                                      (finally (config! progress :visible? false)
                                               (reset! rescan (rescan-fn)))))))]
-    (b/bind bc-address-text (b/transform #(or (valid-ip? %) @bc-address)) bc-address)
+    (b/bind bc-address-text bc-address)
     (b/bind dest-port-text (b/transform #(or (parse-or-nil %) @dest-port)) dest-port)
     (b/bind lower-range-text (b/transform #(or (parse-or-nil %) @lower-range)) lower-range)
     (b/bind upper-range-text (b/transform #(or (parse-or-nil %) @upper-range)) upper-range)

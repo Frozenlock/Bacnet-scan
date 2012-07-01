@@ -118,7 +118,8 @@
                                  #"\."))
                         ["255"])))
 
-   
+  
+  
 (defn new-local-device
   "Return a new configured BACnet local device . (A device is required
 to communicate over the BACnet network.). To terminate it, use the

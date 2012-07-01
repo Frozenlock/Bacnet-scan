@@ -51,7 +51,7 @@ transfered to a webserver."
                      (form/hidden-field "db" (gz64 (str db)))
                      (form/submit-button "Submit to BACnet Help!"))
        [:hr]
-       [:p "No Internet connection right now? Don't worry! Simply copy this html file and bring it wherever you can reach the Internet. You can see the current location of this file by looking at your brower's address bar." ]]])))
+       [:p "No Internet connection right now? Don't worry! Simply copy this html file and bring it wherever you can reach the Internet. You can see the current location of this file by looking at your browser's address bar." ]]])))
 
 (defn spit-to-html
   "Save the data to an html file. Return the complete file path."
