@@ -5,7 +5,7 @@
 
 ** How to use
 
-   [[./img/scanner.png]]
+   [[./bacnet-scan/img/scanner.png]]
 
    To scan a network, simply execute the compiled JAR (or the wrapped
    EXE). If you are on standard BACnet network, you should see some
@@ -16,7 +16,7 @@
    file in the same folder as the scanner itself, or in some cases in
    the =HOME= folder. Either way, the scanner should open the HTML
    automatically to give you the opportunity to send the data back to
-   [[www.bacnethelp.com][BACnet Help]], where it can be further analyzed.
+   [[http://bacnethelp.com][BACnet Help]], where it can be further analyzed.
 
    If you don't immediately have access to an Internet connection,
    simply grab the HTML file and open it later when you are connected
@@ -24,7 +24,7 @@
 
 *** Advanced settings
 
-    [[./img/scanner2.png]]
+    [[./bacnet-scan/img/scanner2.png]]
 
     - Scanner ID :: This is the device instance with which the scanner
                     will broadcast itself to the network. It *must
@@ -43,7 +43,7 @@
          default, BACnet uses 47808.
     - Download trendlogs :: When chosen, the scan will retrieve the
          trendlogs info. They will available in a graph form once
-         uploaded to [[BACnet Help]].
+         uploaded to [[http://bacnethelp.com][BACnet Help]].
     - Download devices backups :: If the devices support file transfer
          and backups, the scanner will try to download them. A scan
          would then make a total backup of the network, enabling you
