@@ -12,7 +12,6 @@
   (:require [seesaw.bind :as b]
             [clojure.java.browse]))
 
-(import java.net.InetAddress java.net.Inet4Address)
 
 (defn display-in-frame [frame content]
   (config! frame :content content)
@@ -22,17 +21,6 @@
 ;; check to see if values are below 255."
 ;;   [string]
 ;;   (re-matches #"\A\d{1,3}[.]\d{1,3}[.]\d{1,3}[.]\d{1,3}\z" string))
-
-(defn resolve-dns
-  "Return the IP of a given url, or simply return the IP unchanged"
-  [IP-or-url]
-  (if-not (re-matches #"\d\d?\d?\.\d\d?\d?\.\d\d?\d?\.\d\d?\d?" IP-or-url)
-    (.getHostAddress
-     (->> (InetAddress/getAllByName IP-or-url) 
-          (filter #(instance? Inet4Address %))
-          (first)))
-    IP-or-url))
-
 
 (defn found-devices-widget []
   (let [a (atom [])
@@ -189,7 +177,8 @@
                                ["Download devices backups"][get-backups-text]
                                ["Backup password (if any):"][password-text]])])
           f
-          (frame :title "BACnet Help Network Scan" :minimum-size  [400 :by 375]
+          (frame :title (str "BACnet Help Network Scan - V" (get-scanner-version))
+                             :minimum-size  [400 :by 375]
                  :on-close (or on-close :hide)
                  :content
                  (scrollable

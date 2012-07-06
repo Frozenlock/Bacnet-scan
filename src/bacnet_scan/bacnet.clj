@@ -48,6 +48,41 @@
           type.primitive.SignedInteger
           util.PropertyReferences))
 
+(defn bacnet-objects-reference
+  "Given a key-number, return the object type string"
+  [key-number]
+  (or (get {:23 "Accumulator"
+            :0 "Analog Input"
+            :1 "Analog Output"
+            :2 "Analog Value"
+            :18 "Averaging"
+            :3 "Binary Input"
+            :4 "Binary Output"
+            :5 "Binary Value"
+            :6 "Calendar"
+            :7 "Command"
+            :8 "Device"
+            :9 "Event Enrollment"
+            :10 "File"
+            :11 "Group"
+            :21 "Life Safety Point"
+            :22 "Life Safety Zone"
+            :12 "Loop"
+            :13 "Multi State Input"
+            :14 "Multi State Output"
+            :19 "Multi State Value"
+            :15 "Notification Class"
+            :16 "Program"
+            :24 "Pulse Converter"
+            :17 "Schedule"
+            :20 "Trend Log"
+            :25 "Event Log"
+            :27 "Trend Log Multiple"
+            :28 "Load control"
+            :29 "Structured view"
+            :30 "Access door"} key-number)
+      (str "Unknown/Vendor Specific (" (name key-number) ")")))
+
 (defn prop-ID-by-object-type
   "Return a sequence of property identifiers for a given object
   integer. This is not EVERY properties, but the most useful."
@@ -235,16 +270,18 @@ java method `terminate'."
         object-inst (.getInstanceNumber object-ID)]
     {:object-type (.toString object-type) :object-instance object-inst}))
 
+
 (defn get-properties-values-for-object
   "Return a map of the property name, property number and property
   value for a single object"
   [prop-values object-ID seq-prop-ID]
-  (map #(try (hash-map :prop-int (.intValue %)
-                       :prop-name (.toString %)
-                       :prop-value (bac4j-to-clj (.getNoErrorCheck prop-values object-ID %)))
-             (catch Exception e [{:exception (str "caught exception: " (.getMessage e))}]))
-       seq-prop-ID))
-
+  (let [results
+        (map #(try (hash-map
+                    (keyword (clojure.string/replace (.toString %) " " "-")) ;property integer
+                             (bac4j-to-clj (.getNoErrorCheck prop-values object-ID %)))
+                   (catch Exception e [{:exception (str "caught exception: " (.getMessage e))}]))
+             seq-prop-ID)]
+    (reduce recursive-merge results)))
 
 (defn get-trend-log-data [remote-device object-identifier]
    (let [refs (PropertyReferences.)]
@@ -353,21 +390,19 @@ java method `terminate'."
    & {:keys [get-trend-log get-backup]}]
   (let [property-values (-> local-device
                             (.readProperties remote-device property-references))]
-    (doall (map #(let [object-type (.toString (.getObjectType %))
-                object-integer (.intValue (.getObjectType %))
-                object-instance (.getInstanceNumber %)
-                results (hash-map :object-type object-type
-                                  :object-int object-integer
-                                  :object-instance object-instance
-                                  :object-properties
-                                  (get-properties-values-for-object
+    (reduce recursive-merge
+            (map #(let [object-type (.toString (.getObjectType %))
+                        object-integer (.intValue (.getObjectType %))
+                        object-instance (.getInstanceNumber %)
+                        results {(keyword (str object-integer))
+                                 {(keyword (str object-instance))
+                                  (merge (get-properties-values-for-object
                                    property-values %
-                                   (prop-ID-by-object-type object-integer)))]
-                   ; now get more specific info
-            (cond (and (= object-integer 20) get-trend-log) ;trend-log
-                  (assoc results :trend-log-data (get-trend-log-data remote-device %))
-                  :else results))
-            seq-object-identifiers))))
+                                   (prop-ID-by-object-type object-integer))
+                                         (when (and (= object-integer 20) get-trend-log)
+                                           {:trend-log-data
+                                            (get-trend-log-data remote-device %)}))}}] results)
+                 seq-object-identifiers))))
   
   
 (defn remote-devices-object-and-properties
@@ -375,23 +410,25 @@ java method `terminate'."
   [remote-devices & {:keys [get-trend-log get-backup password]}]
   (let [rds remote-devices
         seq-oids (map #(get-object-identifiers %) rds)] ;delay needed?
-    (into {} (map (fn [rd oids]
-                    (let [prop-refs (get-properties-references rd oids)
-                          objects (get-properties-values-for-remote-device
-                                   rd oids prop-refs :get-trend-log get-trend-log)
-                          address (.getAddress rd)
-                          results {:update (.toString (now))
-                                   :name (.getName rd)
-                                   :ip-address (.toIpString address)
-                                   :mac-address (.toString (.getMacAddress address))
-                                   :network-number (.intValue (.getNetworkNumber address))
-                                   :objects objects}]
-                      (hash-map (keyword (str (.getInstanceNumber rd)))
-                                (if-let [backup (and get-backup
-                                                     (get-backup-and-encode rd password))]
-                                  (assoc results :backup-data backup)
-                                  results))))
-                  rds seq-oids))))
+    {:scanner-version (get-scanner-version)
+     :data
+     (into {} (map (fn [rd oids]
+                     (let [prop-refs (get-properties-references rd oids)
+                           objects (get-properties-values-for-remote-device
+                                    rd oids prop-refs :get-trend-log get-trend-log)
+                           address (.getAddress rd)
+                           results {:update (.toString (now))
+                                    :name (.getName rd)
+                                    :ip-address (.toIpString address)
+                                    :mac-address (.toString (.getMacAddress address))
+                                    :network-number (.intValue (.getNetworkNumber address))
+                                    :objects objects}]
+                       (hash-map (keyword (str (.getInstanceNumber rd)))
+                                 (if-let [backup (and get-backup
+                                                      (get-backup-and-encode rd password))]
+                                   (assoc results :backup-data backup)
+                                   results))))
+                   rds seq-oids))}))
 
 
 (defn bacnet-test []

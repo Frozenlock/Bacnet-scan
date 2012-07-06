@@ -33,7 +33,7 @@ body {
   "Export the db into an hidden field in an html page, ready to be
 transfered to a webserver."
   [filename db]
-  (let [number-of-devices (count db)]
+  (let [number-of-devices (count (:data db))]
     (html5
      [:head
       [:title "BACnet Help report"]
