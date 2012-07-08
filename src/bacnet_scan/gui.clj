@@ -1,9 +1,9 @@
 (ns bacnet-scan.gui
   (:gen-class :main true)
   (:use [clojure.string :only (split join)]
-        [bacnet-scan.helpfn]
-        [bacnet-scan.bacnet]
-        [bacnet-scan.export :as exp]
+        [bacnet-scan-utils.helpfn]
+        [bacnet-scan-utils.bacnet]
+        [bacnet-scan-utils.export :as exp]
         [seesaw.core]
         [seesaw.swingx]
         [seesaw.dev :only (show-options)]
@@ -11,6 +11,10 @@
         [overtone.at-at])
   (:require [seesaw.bind :as b]
             [clojure.java.browse]))
+
+(defmacro get-scanner-version []
+  (let [x# (System/getProperty "bacnet-scan.version")]
+    `~x#))
 
 
 (defn display-in-frame [frame content]
@@ -123,11 +127,14 @@
                       (clojure.java.browse/browse-url
                        (clojure.string/replace
                         (str "file://"
-                             (exp/spit-to-html "Bacnet-help" (remote-devices-object-and-properties
-                                                              rds
-                                                              :get-trend-log @get-trend-logs
-                                                              :get-backup @get-backups
-                                                              :password @password))) "\\" "/")))
+                             (exp/spit-to-html "Bacnet-help"
+                                               (assoc (remote-devices-object-and-properties
+                                                       rds
+                                                       :get-trend-log @get-trend-logs
+                                                       :get-backup @get-backups
+                                                       :password @password)
+                                                 :scanner-version (get-scanner-version))))
+                        "\\" "/")))
         scan (listen button
                      :action (fn [e]
                                (stop @rescan)
