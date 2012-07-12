@@ -5,7 +5,7 @@
 
 ** How to use
 
-   [[./Bacnet-scan/blob/master/img/scanner.png]]
+   [[./Bacnet-scan/raw/master/img/scanner.png]]
 
    To scan a network, simply execute the compiled JAR (or the wrapped
    EXE). If you are on standard BACnet network, you should see some
@@ -24,7 +24,7 @@
 
 *** Advanced settings
 
-    [[./Bacnet-scan/blob/master/img/scanner2.png]]
+    [[./Bacnet-scan/raw/master/img/scanner2.png]]
 
     - Scanner ID :: This is the device instance with which the scanner
                     will broadcast itself to the network. It *must
