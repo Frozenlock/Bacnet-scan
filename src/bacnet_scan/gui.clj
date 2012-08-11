@@ -4,6 +4,7 @@
         [bacnet-scan-utils.helpfn]
         [bacnet-scan-utils.bacnet]
         [bacnet-scan-utils.export :as exp]
+        [bacnet-scan.cmd-line :only [cmd-line]]
         [seesaw.core]
         [seesaw.swingx]
         [seesaw.dev :only (show-options)]
@@ -205,4 +206,6 @@
           (show!))) @rescan))
 
 (defn -main [& args]
-  (query-user :on-close :exit))
+  (if (empty? args)
+    (query-user :on-close :exit)
+    (cmd-line args)))
