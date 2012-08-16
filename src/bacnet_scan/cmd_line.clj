@@ -58,6 +58,9 @@
              
              ["-xml" "--export-xml" "Export as an XML instead of a Clojure map"
               :default false :flag true]
+
+             ["-d" "--default" "Run everything as default, but don't use the GUI"
+              :default false :flag true]
              
              ["-h" "--help" "Show help" :default false :flag true])
         

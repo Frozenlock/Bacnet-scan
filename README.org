@@ -73,6 +73,7 @@
 :    -p, --port                           47808                                        The port on which the BACnet network is listening 
 :    -f, --export-filename                ~/Bacnet-scan/BACnet-help-1345158214661.log  Export filename                                   
 :    -xml, --no-export-xml, --export-xml  false                                        Export as an XML instead of a Clojure map         
+:    -d, --no-default, --default          false                                        Run everything as default, but don't use the GUI  
 :    -h, --no-help, --help                false                                        Show help                                         
 
 *** Medium to big networks (> 15 devices)
