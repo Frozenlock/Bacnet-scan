@@ -39,10 +39,6 @@
 
 ;;;; Now we get in the real stuff ;;;;
 
-(defmacro get-app-version []
-  (let [x# (System/getProperty "bacnet-scan.version")]
-    `~x#))
-
 
 (defn cmd-line [args]
   (let [[options args banner]
@@ -63,9 +59,7 @@
              ["-xml" "--export-xml" "Export as an XML instead of a Clojure map"
               :default false :flag true]
              
-             ["-h" "--help" "Show help" :default false :flag true]
-
-             ["-v" "--version" "Show application version" :default false :flag true])
+             ["-h" "--help" "Show help" :default false :flag true])
         
         bc-add (:broadcast-address options)
         xml (:export-xml options)
@@ -75,9 +69,6 @@
     
     (when (:help options)
       (println banner)
-      (System/exit 0))
-    (when (:version options)
-      (println (get-app-version))
       (System/exit 0))
 
     (let [report (with-local-device (new-local-device
