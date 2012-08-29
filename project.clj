@@ -1,4 +1,4 @@
-(defproject bacnet-scan "1.0.1"
+(defproject bacnet-scan "1.0.2"
   :description "Small application to scan a BACnet network. Results
   are exported in an HTML file, ready to be sent to a webserver for
   further analysis."

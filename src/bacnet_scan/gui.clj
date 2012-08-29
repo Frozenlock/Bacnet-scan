@@ -205,7 +205,17 @@
           (pack!)
           (show!))) @rescan))
 
+
+(defn protected-query-user
+  "Stop exceptions from messing with the CLI. Should prevent the
+  \"Desktop API is not supported on the current platform\" bug. It
+  seems to be recurring in linux distros
+  http://ubuntuforums.org/showthread.php?t=1935692"
+  [& {:as args}]
+  (try (query-user args)
+       (catch Exception e (str "Warning: " (.getMessage e)))))
+
 (defn -main [& args]
   (if (empty? args)
-    (query-user :on-close :exit)
+    (protected-query-user :on-close :exit)
     (cmd-line args)))
