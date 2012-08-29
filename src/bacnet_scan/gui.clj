@@ -81,7 +81,7 @@
              :tip "Those are the devices found on the network. The scan might reveal more."
              :id :#rd :focusable? nil :enabled? nil :sort-order :ascending))
 
-(defn query-user [& {:keys [on-close]}]
+(defn query-user [{:keys [on-close]}]
   (native!)
   (let [my-pool (mk-pool)
         remote-devices (atom [])

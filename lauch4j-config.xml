@@ -1,7 +1,7 @@
 <launch4jConfig>
   <dontWrapJar>false</dontWrapJar>
   <headerType>gui</headerType>
-  <jar>/home/frozenlock/clojure/Bacnet-scan/target/bacnet-scan-1.0.1-standalone.jar</jar>
+  <jar>/home/frozenlock/clojure/Bacnet-scan/target/bacnet-scan-1.0.2-standalone.jar</jar>
   <outfile>/home/frozenlock/clojure/Bacnet-scan/bacnet-scan.exe</outfile>
   <errTitle></errTitle>
   <cmdLine></cmdLine>
