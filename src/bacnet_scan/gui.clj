@@ -108,6 +108,8 @@
                            #(reset!
                              remote-devices (get-remote-devices-list
                                              :dest-port @dest-port
+                                             :min-range @lower-range
+                                             :max-range @upper-range
                                              :local-device
                                              (new-local-device ;:scanner-id (parse-or-nil devID)
                                               :broadcast-address (resolve-dns @bc-address)
@@ -147,8 +149,8 @@
                                                          :port @dest-port)
                                        (let [rds
                                              (get-remote-devices-and-info
-                                              :min @lower-range
-                                              :max @upper-range
+                                              :min-range @lower-range
+                                              :max-range @upper-range
                                               :dest-port @dest-port)]
                                          (scan-export rds)))
                                      (finally (config! progress :visible? false)
@@ -219,3 +221,4 @@
   (if (empty? args)
     (protected-query-user :on-close :exit)
     (cmd-line args)))
+

@@ -1,8 +1,8 @@
 <launch4jConfig>
   <dontWrapJar>false</dontWrapJar>
   <headerType>gui</headerType>
-  <jar>/home/frozenlock/clojure/Bacnet-scan/target/bacnet-scan-1.0.2-standalone.jar</jar>
-  <outfile>/home/frozenlock/clojure/Bacnet-scan/bacnet-scan.exe</outfile>
+  <jar>/home/frozenlock/clojure/BACnet/Bacnet-scan/target/bacnet-scan-1.0.5-standalone.jar</jar>
+  <outfile>/home/frozenlock/clojure/BACnet/Bacnet-scan/bacnet-scan.exe</outfile>
   <errTitle></errTitle>
   <cmdLine></cmdLine>
   <chdir></chdir>
@@ -24,7 +24,7 @@
     <jdkPreference>preferJre</jdkPreference>
   </jre>
   <splash>
-    <file>/home/frozenlock/clojure/Bacnet-scan/bacnet-scan-logo.bmp</file>
+    <file>/home/frozenlock/clojure/BACnet/Bacnet-scan/bacnet-scan-logo.bmp</file>
     <waitForWindow>true</waitForWindow>
     <timeout>60</timeout>
     <timeoutErr>true</timeoutErr>
